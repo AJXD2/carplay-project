@@ -1,0 +1,74 @@
+# Minimal dark theme matching the carplay Plymouth boot splash
+# (black background, thin white/gray rings, monochrome, no clutter).
+# Color is used only as a severity accent on the frame, not the fill.
+
+[global]
+    monitor = 0
+    follow = mouse
+    origin = top-right
+    offset = 28x28
+    width = (280, 420)
+    height = (0, 140)
+    scale = 0
+    notification_limit = 3
+
+    progress_bar = false
+    indicate_hidden = yes
+    transparency = 4
+
+    separator_height = 1
+    separator_color = frame
+    padding = 18
+    horizontal_padding = 18
+    frame_width = 1
+    frame_color = "#2b2b2b"
+    corner_radius = 4
+
+    sort = yes
+    idle_threshold = 0
+
+    font = DejaVu Sans 11
+    line_height = 3
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    show_age_threshold = -1
+    ellipsize = middle
+    ignore_newline = no
+    stack_duplicates = true
+    hide_duplicate_count = true
+
+    show_indicators = no
+    icon_position = off
+    min_icon_size = 0
+    max_icon_size = 0
+
+    sticky_history = yes
+    history_length = 20
+
+    title = Dunst
+    class = Dunst
+
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#0a0a0a"
+    foreground = "#b3b3b3"
+    frame_color = "#2b2b2b"
+    timeout = 6
+
+[urgency_normal]
+    background = "#0a0a0a"
+    foreground = "#f2f2f2"
+    frame_color = "#4a4a4a"
+    timeout = 8
+
+[urgency_critical]
+    background = "#3a0a0a"
+    foreground = "#ffffff"
+    frame_color = "#ff3b30"
+    frame_width = 3
+    timeout = 0

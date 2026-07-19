@@ -8,13 +8,18 @@ set -u
 POLL_INTERVAL=10
 TEMP_WARN_C=70
 TEMP_CRIT_C=80
-RENOTIFY_INTERVAL=300   # re-alert every 5 min while still hot
+RENOTIFY_INTERVAL=300      # re-alert every 5 min while still hot (warning)
+RENOTIFY_INTERVAL_CRIT=60  # re-alert every 1 min while critical, harder to ignore
 THERMAL_FILE=/sys/class/thermal/thermal_zone0/temp
 IFACE=eth0
+ALERT_SOUND=/usr/share/sounds/freedesktop/stereo/dialog-warning.oga
 
 notify() {
   local urgency="$1" title="$2" body="$3"
   notify-send -a "Pi Monitor" -u "$urgency" -t 8000 "$title" "$body"
+  if [ "$urgency" = "critical" ]; then
+    [ -r "$ALERT_SOUND" ] && paplay "$ALERT_SOUND" >/dev/null 2>&1 &
+  fi
 }
 
 temp_state="ok"
@@ -36,17 +41,18 @@ while true; do
       new_state="ok"
     fi
 
-    if [ "$new_state" != "ok" ]; then
+    if [ "$new_state" = "crit" ]; then
+      if [ "$new_state" != "$temp_state" ] || [ $(( now - last_temp_notify )) -ge "$RENOTIFY_INTERVAL_CRIT" ]; then
+        notify critical "⚠ THERMAL CRITICAL" "CPU at ${temp_c}°C. Throttling likely above ${TEMP_CRIT_C}°C."
+        last_temp_notify=$now
+      fi
+    elif [ "$new_state" = "warn" ]; then
       if [ "$new_state" != "$temp_state" ] || [ $(( now - last_temp_notify )) -ge "$RENOTIFY_INTERVAL" ]; then
-        if [ "$new_state" = "crit" ]; then
-          notify critical "Pi overheating: ${temp_c}°C" "Above ${TEMP_CRIT_C}°C — throttling likely."
-        else
-          notify normal "Pi running hot: ${temp_c}°C" "Above ${TEMP_WARN_C}°C warning threshold."
-        fi
+        notify normal "Thermal Warning" "CPU at ${temp_c}°C, above ${TEMP_WARN_C}°C threshold."
         last_temp_notify=$now
       fi
     elif [ "$temp_state" != "ok" ]; then
-      notify normal "Pi temp back to normal" "${temp_c}°C"
+      notify normal "Temperature Normal" "CPU back to ${temp_c}°C."
     fi
     temp_state="$new_state"
   fi
@@ -54,7 +60,7 @@ while true; do
   # --- ethernet IP ---
   cur_ip=$(ip -4 -o addr show "$IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
   if [ -n "$cur_ip" ] && [ "$cur_ip" != "$last_ip" ]; then
-    notify normal "Ethernet connected" "${IFACE}: ${cur_ip}"
+    notify normal "Ethernet Connected" "${IFACE}: ${cur_ip}"
   fi
   last_ip="$cur_ip"
 

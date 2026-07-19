@@ -4,11 +4,11 @@ Notes and tooling for the Raspberry Pi 4 CarPlay dongle box. This repo
 exists because the Pi's root filesystem is read-only at runtime, so
 nothing done directly on the device persists unless you go through one
 of the methods documented below. Read this before you SSH in and start
-changing things — it *will* get reverted on reboot otherwise.
+changing things: it *will* get reverted on reboot otherwise.
 
 ## Hardware / OS
 
-- **Raspberry Pi 4** — USB-C port is power-only, no OTG/gadget mode. USB-A
+- **Raspberry Pi 4**: USB-C port is power-only, no OTG/gadget mode. USB-A
   ports are host-only too. There is no way to get a terminal over a USB
   cable on this board; use the network or GPIO UART.
 - Raspberry Pi OS (Debian trixie), kernel `6.12.47+rpt-rpi-v8`.
@@ -16,11 +16,11 @@ changing things — it *will* get reverted on reboot otherwise.
 - Power: needs a genuine 5.1V/3A USB-C PD supply into a wall outlet. A
   computer's USB port or a cheap/thin cable will trigger an undervoltage
   warning and throttle the CPU / risk SD corruption. There's no
-  "raise the voltage" fix — it's a current-delivery problem, not a
+  "raise the voltage" fix, it's a current-delivery problem, not a
   software setting. (`avoid_warnings=1` in `config.txt` only hides the
-  icon, doesn't fix the actual undervoltage — don't use it as a fix.)
+  icon, doesn't fix the actual undervoltage: don't use it as a fix.)
 
-## Read-only root (`overlayroot`) — the most important thing to understand
+## Read-only root (`overlayroot`): the most important thing to understand
 
 The Pi boots with `overlayroot="tmpfs:recurse=0"` (see
 `/etc/overlayroot.conf`). This means:
@@ -28,13 +28,13 @@ The Pi boots with `overlayroot="tmpfs:recurse=0"` (see
 - The real filesystem (`/dev/mmcblk0p2`, ext4) is mounted **read-only**
   at `/media/root-ro`.
 - Everything else (`/`, `/home`, `/etc`, ...) is a **tmpfs overlay** on
-  top of that — `upperdir=/media/root-rw/overlay`.
-- Anything written while the Pi is running normally — `apt install`,
-  editing a config file, anything — goes into that tmpfs upper layer
+  top of that, `upperdir=/media/root-rw/overlay`.
+- Anything written while the Pi is running normally (`apt install`,
+  editing a config file, anything) goes into that tmpfs upper layer
   and is **gone on the next reboot or power cycle**.
 
 This is intentional and correct for a device that gets its power cut
-abruptly (car ignition off) instead of shut down cleanly — it protects
+abruptly (car ignition off) instead of shut down cleanly. It protects
 the SD card from corruption. Don't disable it permanently; work with
 it instead.
 
@@ -55,7 +55,7 @@ ssh ajxd2@raspi.local 'sudo tee /media/root-ro/home/ajxd2/some-file'
 # For anything needing a proper package-manager/root context (apt installs etc),
 # use the overlayroot-chroot helper instead of remounting manually:
 ssh ajxd2@raspi.local 'sudo overlayroot-chroot apt-get install -y <pkg>'
-# (No "--" before the command — overlayroot-chroot <cmd...> directly.)
+# (No "--" before the command: overlayroot-chroot <cmd...> directly.)
 
 # Best-effort remount back to read-only when done:
 ssh ajxd2@raspi.local 'sudo mount -o remount,ro /media/root-ro'
@@ -63,7 +63,7 @@ ssh ajxd2@raspi.local 'sudo mount -o remount,ro /media/root-ro'
 
 **Known kernel quirk:** the remount back to `ro` frequently fails with
 `mount point is busy` while the overlay is actively mounted on top of
-it. This is non-fatal — it just means the real partition stays
+it. This is non-fatal, it just means the real partition stays
 writable for the rest of this boot session (same power-loss-corruption
 risk as a normal filesystem until next reboot). It always resets
 cleanly to read-only on the next boot regardless. If you want the
@@ -72,7 +72,7 @@ protection back immediately, `sudo reboot`.
 **Another quirk:** overlayfs caches directory listings the first time
 something is looked up. If you install a new package (new files
 appearing in an already-accessed directory like `/usr/bin`), those new
-files **will not show up in the live session** — you have to `sudo
+files **will not show up in the live session**, you have to `sudo
 reboot` for the overlay to remount fresh and pick them up. Writing a
 brand-new file into a path that's never been touched this boot (e.g. a
 new subdirectory under `/home/ajxd2/`) *does* show up live immediately
@@ -99,12 +99,12 @@ you can write to `ajxd2`-owned files without `sudo` at all.
 
 ## Networking
 
-- `systemd-networkd` (enabled) does DHCP on both `eth0` and `wlan0` —
-  configs at `/etc/systemd/network/10-eth0.network` and
+- `systemd-networkd` (enabled) does DHCP on both `eth0` and `wlan0`.
+  Configs at `/etc/systemd/network/10-eth0.network` and
   `20-wlan0.network`. **Not** `dhcpcd` (present but unused/not enabled).
 - Wi-Fi auth is `wpa_supplicant@wlan0.service` (enabled), config at
   `/etc/wpa_supplicant/wpa_supplicant-wlan0.conf` (root-only, `600`).
-- `NetworkManager.service` is also enabled but effectively inert —
+- `NetworkManager.service` is also enabled but effectively inert:
   `system-connections/` is empty and `NetworkManager.conf` sets
   `managed=false` for ifupdown. It's a leftover, not what's actually
   bringing interfaces up. Ignore it.
@@ -122,12 +122,12 @@ you can write to `ajxd2`-owned files without `sudo` at all.
 ## SSH access
 
 - `authorized_keys` lives at `/home/ajxd2/.ssh/authorized_keys` (was
-  empty — that's why a new machine couldn't get in). Add a new laptop's
+  empty, that's why a new machine couldn't get in). Add a new laptop's
   key by appending its `~/.ssh/id_ed25519.pub` to that file (through
   one of the persistence methods above, not a plain live SSH edit, or
   it'll disappear on reboot).
 - `PasswordAuthentication` is commented out (defaults to whatever
-  sshd's compiled default is — currently pubkey-only in practice since
+  sshd's compiled default is, currently pubkey-only in practice since
   no password login has worked). Pubkey is the supported path.
 - The `ajxd2` account has **passwordless sudo**, and UID 1000 matches a
   typical single-user Linux desktop, which is how the SD-card-editing
@@ -136,7 +136,7 @@ you can write to `ajxd2`-owned files without `sudo` at all.
 ## What's actually running
 
 - `react-carplay.AppImage` (Electron app, the actual CarPlay dongle
-  software) — auto-started fullscreen from `~/.config/openbox/autostart`,
+  software), auto-started fullscreen from `~/.config/openbox/autostart`,
   restarted in a loop if it crashes (`while true; do ... AppImage; sleep 2; done`).
 - Desktop stack: `agetty` autologin on `tty1` → `.xinitrc` → `Xorg` →
   `openbox` (window manager) → autostart script launches CarPlay,
@@ -144,24 +144,35 @@ you can write to `ajxd2`-owned files without `sudo` at all.
   `pi-monitor.sh` (see below).
 - No Docker, no other custom services beyond stock Bluetooth/PulseAudio.
 
-## pi-monitor — temp/network notifications
+## pi-monitor: temp/network notifications
 
 `pi-monitor/` in this repo is a small on-screen alert system, since the
 CarPlay app runs fullscreen with no window chrome:
 
-- `pi-monitor/pi-monitor.sh` — polls every 10s, pops up a `dunst`
+- `pi-monitor/pi-monitor.sh`: polls every 10s, pops up a `dunst`
   notification (via `notify-send`) when CPU temp crosses 70°C (warn) /
-  80°C (critical), re-alerting every 5 min while sustained, and clears
-  when it drops back down. Also pops up the IP address the moment
-  `eth0` gets a link with an address.
-- Installed persistently: `dunst` + `libnotify-bin` via
-  `overlayroot-chroot`, script lives at `~/pi-monitor/pi-monitor.sh` on
-  the Pi, both started from a marked block appended to
-  `~/.config/openbox/autostart`.
-- `pi-monitor/deploy.sh [user@host]` — the actual devex fix. Edit
+  80°C (critical). Warnings re-alert every 5 min while sustained;
+  critical alerts re-alert every 1 min and also play an audible tone
+  (`dialog-warning.oga` via `paplay`) since a red border alone isn't
+  urgent enough to notice while driving. Clears with a confirmation
+  notification when temp drops back down. Also pops up the IP address
+  the moment `eth0` gets a link with an address.
+- Installed persistently: `dunst`, `libnotify-bin`, and
+  `sound-theme-freedesktop` via `overlayroot-chroot`. Script lives at
+  `~/pi-monitor/pi-monitor.sh` on the Pi, both dunst and the monitor
+  started from a marked block appended to `~/.config/openbox/autostart`.
+- `pi-monitor/dunstrc`: styling for the popups. Black background, thin
+  gray frame, no icons, matching the black/white minimal ring animation
+  in the Plymouth boot theme (`/usr/share/plymouth/themes/carplay/`)
+  rather than dunst's default look. Critical alerts break from the
+  minimal look on purpose: dark red fill (not just a border), a thicker
+  3px red frame, an `⚠` glyph, an all-caps title, and the sound cue
+  above, so they read as genuinely urgent instead of just a color
+  change. Deployed to `~/.config/dunst/dunstrc` on the Pi.
+- `pi-monitor/deploy.sh [user@host]`: the actual devex fix. Edit
   `pi-monitor.sh` here, run `./deploy.sh`, and it:
   1. remounts `/media/root-ro` rw on the Pi
-  2. copies the script there (persists across reboot)
+  2. copies the script and dunstrc there (persists across reboot)
   3. ensures the autostart block exists (idempotent, won't duplicate)
   4. best-effort remounts back to `ro`
   5. kills and relaunches the live `dunst`/`pi-monitor.sh` processes on

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deploys pi-monitor to the Pi over SSH, writing directly through
-# /media/root-ro so changes persist across reboots — no SD card pull
+# /media/root-ro so changes persist across reboots, no SD card pull
 # needed. Root fs is overlayroot (read-only ext4 + tmpfs overlay), so
 # ordinary writes over SSH would vanish on next boot; this script
 # remounts the real ext4 partition rw first.
@@ -20,6 +20,10 @@ ssh "$HOST" 'sudo mount -o remount,rw /media/root-ro 2>/dev/null; true'
 echo "==> Copying pi-monitor.sh"
 ssh "$HOST" "sudo mkdir -p $REMOTE_HOME/pi-monitor && sudo tee $REMOTE_HOME/pi-monitor/pi-monitor.sh >/dev/null" < "$SCRIPT_DIR/pi-monitor.sh"
 ssh "$HOST" "sudo chmod +x $REMOTE_HOME/pi-monitor/pi-monitor.sh && sudo chown ajxd2:ajxd2 $REMOTE_HOME/pi-monitor/pi-monitor.sh"
+
+echo "==> Copying dunstrc"
+ssh "$HOST" "sudo mkdir -p $REMOTE_HOME/.config/dunst && sudo tee $REMOTE_HOME/.config/dunst/dunstrc >/dev/null" < "$SCRIPT_DIR/dunstrc"
+ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $REMOTE_HOME/.config/dunst"
 
 echo "==> Ensuring openbox autostart launches dunst + pi-monitor"
 ssh "$HOST" bash -s <<REMOTE_EOF
@@ -44,7 +48,7 @@ ssh "$HOST" 'sudo mount -o remount,ro /media/root-ro 2>&1 || echo "  (kernel won
 
 echo "==> Restarting live pi-monitor/dunst on the running session for immediate effect"
 ssh "$HOST" '
-  pkill -f "pi-monitor/pi-monitor.sh" 2>/dev/null || true
+  pkill -f "^/bin/bash /home/ajxd2/pi-monitor/pi-monitor.sh$" 2>/dev/null || true
   pkill -x dunst 2>/dev/null || true
   sleep 1
   export DISPLAY=:0
