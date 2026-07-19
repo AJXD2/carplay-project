@@ -135,14 +135,94 @@ you can write to `ajxd2`-owned files without `sudo` at all.
 
 ## What's actually running
 
-- `react-carplay.AppImage` (Electron app, the actual CarPlay dongle
-  software), auto-started fullscreen from `~/.config/openbox/autostart`,
-  restarted in a loop if it crashes (`while true; do ... AppImage; sleep 2; done`).
+- `launcher/launcher.py` (see below) is now what autostarts, not
+  `react-carplay.AppImage` directly. CarPlay is one of its apps.
 - Desktop stack: `agetty` autologin on `tty1` → `.xinitrc` → `Xorg` →
-  `openbox` (window manager) → autostart script launches CarPlay,
-  `pulseaudio`, `picom` (compositor), `unclutter`, and now `dunst` +
+  `openbox` (window manager) → autostart script launches the launcher +
+  overlay tab, `pulseaudio`, `picom` (compositor), `unclutter`, `dunst` +
   `pi-monitor.sh` (see below).
 - No Docker, no other custom services beyond stock Bluetooth/PulseAudio.
+
+## launcher: CarPlay as one app among others
+
+`launcher/` turns this from a single-purpose CarPlay box into a small
+home screen with CarPlay as one tile among a few others (Flappy Bird, a
+live system-status app), all controllable via touch, since the car has
+no keyboard.
+
+- **`launcher/launcher.py`**: the home screen (pygame, fullscreen,
+  800x480). Shows a tile per app plus a `[-] NN% [+]` volume pill top
+  right. Tapping a tile launches that app if it isn't running yet
+  (`subprocess.Popen`, non-blocking process), or just brings it back to
+  front if it already is. **Apps are hidden, not killed**, when you
+  switch away, they keep running in the background (CarPlay keeps
+  playing music while you're in Flappy Bird, no reconnect delay when
+  you come back) via real X11 window unmap/map (`xdotool`), not process
+  termination.
+- **`launcher/wm_helper.py`**: shared window-management + audio
+  helpers used by both `launcher.py` and `overlay_tab.py`:
+  - `wait_for_new_active_window()` captures a newly-launched app's
+    window by polling `xdotool getactivewindow` until focus lands on
+    something big enough to be the real app (`min_w=400, min_h=300` by
+    default), not a transient splash/helper window. Electron apps
+    (CarPlay included) briefly create small helper windows during
+    startup; capturing one of those instead of the real 800x480 window
+    was the cause of an apparent "CarPlay is glitched" bug that turned
+    out to be a wrong window ID, not a real crash.
+  - `apply_audio_priority(binary)`: **CarPlay always has audio
+    priority**: its sink-input is explicitly unmuted on every app
+    switch and is never touched by anything else the launcher does;
+    whatever else is currently active gets muted instead, so it can
+    never compete with or interrupt CarPlay's audio. Operates on *all*
+    matching sink-inputs for a given app (CarPlay alone creates two),
+    not just the first/last match found.
+- **`launcher/overlay_tab.py`**: a small always-on-top "go home" tab,
+  bottom-center of the screen, a chevron on a dark pill. Built as a raw
+  X11 **override-redirect** window (via `python3-xlib`, not pygame,
+  which has no way to request this window type) so it floats above
+  *any* fullscreen app including CarPlay, the same trick `dunst`
+  notifications already rely on. Tapping it hides whatever's currently
+  active and un-hides the launcher; nothing gets killed.
+- **`launcher/info.py`**: a live system-status app (hostname, uptime,
+  CPU temp, throttle status via `vcgencmd get_throttled`, load average,
+  memory/disk, both IPs, volume), refreshing every second. Answers "is
+  it actually undervolting" directly instead of inferring it from
+  temperature the way `pi-monitor.sh` does.
+- **`launcher/flappy.py`**: a throwaway Flappy Bird clone (pygame
+  canvas, tap-to-flap), mostly built to prove random little apps are
+  actually viable on this screen, not because it needed to exist.
+- Visual style matches `pi-monitor/dunstrc`'s "Refined Card" palette
+  (same background/border/text colors across the launcher, info app,
+  and the tab) so the whole UI reads as one system rather than
+  bolted-together prototypes.
+
+### The bug that ate most of a session: the old autostart loop
+
+The original `~/.config/openbox/autostart` launched CarPlay directly:
+`(while true; do react-carplay.AppImage; sleep 2; done) &`. Every time
+the launcher (or a manual `pkill`) killed CarPlay to hide/replace it,
+this loop would silently relaunch it 2 seconds later, fighting with the
+launcher's own process tracking. This produced duplicate CarPlay
+instances and what looked like random glitches for a long time before
+being traced to the loop itself via `pstree`, not a bug in the launcher
+code. **`launcher/deploy.sh` removes that loop line** as part of
+deploying. If you ever hand-restore the old autostart line for some
+reason, the launcher's process management will fight it again.
+
+### Known limitation
+
+If `launcher.py` itself ever restarts (crash, redeploy) while an app is
+already running, it loses track of that app in its in-memory state,
+the tile will show as "not running" and tapping it again would spawn a
+duplicate rather than re-attaching to the existing process. Restarting
+the whole stack together (as `deploy.sh` does) sidesteps this; a more
+robust version would discover already-running apps by querying X/process
+state on startup instead of trusting in-memory tracking.
+
+- `launcher/deploy.sh [user@host]`: same pattern as
+  `pi-monitor/deploy.sh`, writes through `/media/root-ro` so it
+  persists, and additionally rewrites the openbox autostart to remove
+  the old CarPlay loop and add the launcher + overlay tab instead.
 
 ## pi-monitor: temp/network notifications
 
@@ -221,4 +301,5 @@ CarPlay app runs fullscreen with no window chrome:
 | Make root writable (this boot only) | `sudo mount -o remount,rw /media/root-ro` |
 | Install a package persistently | `sudo overlayroot-chroot apt-get install -y <pkg>` |
 | Deploy pi-monitor changes | `cd pi-monitor && ./deploy.sh` |
+| Deploy launcher changes | `cd launcher && ./deploy.sh` |
 | Fully reset the overlay / pick up new packages | `sudo reboot` |
