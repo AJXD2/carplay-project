@@ -1,13 +1,14 @@
-# Refined Card style: muted/desaturated frame-as-accent, top-center
-# placement, colored icons. See styles/ for the other options tried.
+# Style 5: Light Card
+# Light background, dark text. High visibility in bright daylight
+# against a dark dashboard/CarPlay UI, opposite approach from the rest.
 
 [global]
     monitor = 0
     follow = mouse
-    origin = top-center
-    offset = 0x14
-    width = (300, 440)
-    height = (0, 150)
+    origin = top-right
+    offset = 28x28
+    width = (280, 420)
+    height = (0, 140)
     scale = 0
     notification_limit = 3
     progress_bar = false
@@ -15,11 +16,11 @@
     transparency = 0
     separator_height = 1
     separator_color = frame
-    padding = 16
+    padding = 18
     horizontal_padding = 18
-    frame_width = 2
-    frame_color = "#3a3a3a"
-    corner_radius = 8
+    frame_width = 1
+    frame_color = "#d0d0d0"
+    corner_radius = 10
     sort = yes
     idle_threshold = 0
     font = DejaVu Sans 11
@@ -34,11 +35,9 @@
     stack_duplicates = true
     hide_duplicate_count = true
     show_indicators = no
-    icon_position = left
-    min_icon_size = 36
-    max_icon_size = 36
-    icon_corner_radius = 0
-    text_icon_padding = 14
+    icon_position = off
+    min_icon_size = 0
+    max_icon_size = 0
     sticky_history = yes
     history_length = 20
     title = Dunst
@@ -48,20 +47,20 @@
     mouse_right_click = close_all
 
 [urgency_low]
-    background = "#131313"
-    foreground = "#a8a8a8"
-    frame_color = "#333333"
+    background = "#f2f2f2"
+    foreground = "#555555"
+    frame_color = "#d0d0d0"
     timeout = 6
 
 [urgency_normal]
-    background = "#131313"
-    foreground = "#f0f0f0"
-    frame_color = "#5a6b7a"
+    background = "#ffffff"
+    foreground = "#111111"
+    frame_color = "#c8c8c8"
     timeout = 8
 
 [urgency_critical]
-    background = "#221212"
-    foreground = "#ffffff"
-    frame_color = "#a33a32"
+    background = "#fff0ef"
+    foreground = "#8b0000"
+    frame_color = "#e0342a"
     frame_width = 3
     timeout = 0

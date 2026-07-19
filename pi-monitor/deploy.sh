@@ -21,6 +21,13 @@ echo "==> Copying pi-monitor.sh"
 ssh "$HOST" "sudo mkdir -p $REMOTE_HOME/pi-monitor && sudo tee $REMOTE_HOME/pi-monitor/pi-monitor.sh >/dev/null" < "$SCRIPT_DIR/pi-monitor.sh"
 ssh "$HOST" "sudo chmod +x $REMOTE_HOME/pi-monitor/pi-monitor.sh && sudo chown ajxd2:ajxd2 $REMOTE_HOME/pi-monitor/pi-monitor.sh"
 
+echo "==> Copying assets"
+ssh "$HOST" "sudo mkdir -p $REMOTE_HOME/pi-monitor/assets/icons"
+ssh "$HOST" "sudo tee $REMOTE_HOME/pi-monitor/assets/critical-beep.wav >/dev/null" < "$SCRIPT_DIR/assets/critical-beep.wav"
+ssh "$HOST" "sudo tee $REMOTE_HOME/pi-monitor/assets/icons/info.png >/dev/null" < "$SCRIPT_DIR/assets/icons/info.png"
+ssh "$HOST" "sudo tee $REMOTE_HOME/pi-monitor/assets/icons/warning.png >/dev/null" < "$SCRIPT_DIR/assets/icons/warning.png"
+ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $REMOTE_HOME/pi-monitor/assets"
+
 echo "==> Copying dunstrc"
 ssh "$HOST" "sudo mkdir -p $REMOTE_HOME/.config/dunst && sudo tee $REMOTE_HOME/.config/dunst/dunstrc >/dev/null" < "$SCRIPT_DIR/dunstrc"
 ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $REMOTE_HOME/.config/dunst"

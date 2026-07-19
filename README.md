@@ -151,28 +151,56 @@ CarPlay app runs fullscreen with no window chrome:
 
 - `pi-monitor/pi-monitor.sh`: polls every 10s, pops up a `dunst`
   notification (via `notify-send`) when CPU temp crosses 70°C (warn) /
-  80°C (critical). Warnings re-alert every 5 min while sustained;
-  critical alerts re-alert every 1 min and also play an audible tone
-  (`dialog-warning.oga` via `paplay`) since a red border alone isn't
-  urgent enough to notice while driving. Clears with a confirmation
-  notification when temp drops back down. Also pops up the IP address
-  the moment `eth0` gets a link with an address.
-- Installed persistently: `dunst`, `libnotify-bin`, and
-  `sound-theme-freedesktop` via `overlayroot-chroot`. Script lives at
-  `~/pi-monitor/pi-monitor.sh` on the Pi, both dunst and the monitor
-  started from a marked block appended to `~/.config/openbox/autostart`.
-- `pi-monitor/dunstrc`: styling for the popups. Black background, thin
-  gray frame, no icons, matching the black/white minimal ring animation
-  in the Plymouth boot theme (`/usr/share/plymouth/themes/carplay/`)
-  rather than dunst's default look. Critical alerts break from the
-  minimal look on purpose: dark red fill (not just a border), a thicker
-  3px red frame, an `⚠` glyph, an all-caps title, and the sound cue
-  above, so they read as genuinely urgent instead of just a color
-  change. Deployed to `~/.config/dunst/dunstrc` on the Pi.
+  80°C (critical). Warnings re-alert every 5 min while sustained.
+  Critical alerts re-alert every 1 min and also play an audible beep,
+  since a red border alone isn't urgent enough to notice while driving.
+  Clears with a confirmation notification when temp drops back down.
+  Also pops up the IP address the moment `eth0` gets a link with an
+  address.
+- The critical beep (`pi-monitor/assets/critical-beep.wav`) fully mutes
+  the CarPlay audio sink-input before playing and unmutes it right
+  after (see `play_critical_alert` in `pi-monitor.sh`), rather than just
+  ducking the volume. A partial duck still let the beep get lost in the
+  music; full mute is what actually interrupts. The beep itself is a
+  synthesized square wave (harsher/more harmonics than a sine, reads as
+  sharper), not a stock desktop sound, played at 150% gain via
+  `paplay --volume`. Regenerate it with:
+  ```sh
+  ffmpeg -y -f lavfi -i "aevalsrc=exprs='0.9*(2*gt(sin(2*PI*1500*t)\,0)-1)':s=44100:d=0.15,afade=t=in:d=0.005,afade=t=out:st=0.145:d=0.005" \
+    -f lavfi -i "anullsrc=r=44100:cl=stereo:d=0.5" \
+    -f lavfi -i "aevalsrc=exprs='0.9*(2*gt(sin(2*PI*1500*t)\,0)-1)':s=44100:d=0.15,afade=t=in:d=0.005,afade=t=out:st=0.145:d=0.005" \
+    -filter_complex "[0:a]pan=stereo|c0=c0|c1=c0[b1];[2:a]pan=stereo|c0=c0|c1=c0[b2];[b1][1:a][b2]concat=n=3:v=0:a=1[out]" \
+    -map "[out]" -ar 44100 -ac 2 -acodec pcm_s16le pi-monitor/assets/critical-beep.wav
+  ```
+  (two 150ms beeps at 1500Hz with a 0.5s gap between them)
+- Installed persistently: `dunst` and `libnotify-bin` via
+  `overlayroot-chroot`. Script and beep asset live at
+  `~/pi-monitor/` on the Pi, both dunst and the monitor started from a
+  marked block appended to `~/.config/openbox/autostart`.
+- `pi-monitor/dunstrc`: the "Refined Card" style (see `pi-monitor/styles/`
+  for the 6 variants that were tried and rejected/kept for reference).
+  Dark, muted, desaturated frame color as the accent (slate-blue for
+  normal, brick-red for critical) rather than a bright saturated color,
+  since the brighter Modern Card variant read as too playful. Popups
+  appear top-center (`origin = top-center`) with a real colored icon
+  per notification (`pi-monitor/assets/icons/info.png` for
+  connectivity/info, `warning.png` for thermal warn/critical), rather
+  than relying on text glyphs. The icons are hand-authored SVGs
+  (`assets/icons/*.svg`, rendered to PNG via `rsvg-convert`), not the
+  system's Adwaita symbolic icons: those render in a dark near-black
+  fill meant to be recolored by GTK's CSS icon theming, which doesn't
+  happen when dunst loads them standalone, so they'd be invisible on a
+  dark background. Deployed to `~/.config/dunst/dunstrc` on the Pi.
+  Notifications appear instantly (no slide-in animation): dunst has no
+  built-in animation system, and its windows are override-redirect,
+  which compositors (including the `picom` running here) often exclude
+  from effects by design. Untested and left alone rather than sinking
+  time into an uncertain experiment.
 - `pi-monitor/deploy.sh [user@host]`: the actual devex fix. Edit
   `pi-monitor.sh` here, run `./deploy.sh`, and it:
   1. remounts `/media/root-ro` rw on the Pi
-  2. copies the script and dunstrc there (persists across reboot)
+  2. copies the script, assets (beep + icons), and dunstrc there (persists across
+     reboot)
   3. ensures the autostart block exists (idempotent, won't duplicate)
   4. best-effort remounts back to `ro`
   5. kills and relaunches the live `dunst`/`pi-monitor.sh` processes on
