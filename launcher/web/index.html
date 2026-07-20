@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>carplay pi</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="dim-btn" class="circle-btn" aria-label="Dim for night driving">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
+    </button>
+    <div id="datetime" class="datetime"></div>
+  </header>
+
+  <div class="body-row">
+    <aside class="sidebar">
+      <button id="vol-up" class="circle-btn">+</button>
+      <div id="vol-track" class="vol-track"><div id="vol-fill" class="vol-fill"></div></div>
+      <button id="vol-down" class="circle-btn">-</button>
+      <div class="sidebar-spacer"></div>
+      <button id="settings-btn" class="circle-btn" aria-label="Settings">
+        <img src="/assets/icons/settings.svg" alt="">
+      </button>
+    </aside>
+
+    <main id="grid-view" class="panels"></main>
+
+    <section id="settings-view" class="settings hidden">
+      <header class="settings-header">
+        <button id="back-btn" class="circle-btn" aria-label="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+        </button>
+        <h1>Settings</h1>
+      </header>
+      <div class="settings-body">
+        <div class="settings-row toggle-row">
+          <span>Auto Launch</span>
+          <button id="auto-launch-toggle" class="toggle" role="switch" aria-checked="false"></button>
+        </div>
+        <div id="app-picker" class="picker"></div>
+        <button id="save-btn" class="save-btn">Save</button>
+        <div id="toast" class="toast hidden"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="dim-overlay"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

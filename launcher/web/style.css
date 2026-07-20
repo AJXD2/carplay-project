@@ -1,0 +1,282 @@
+:root {
+  --bg: #131313;
+  --panel-bg: #1a1a20;
+  --panel-pressed: #24242c;
+  --sidebar-bg: #0e0e12;
+  --border: #3a3a3a;
+  --accent: #5a6b7a;
+  --text-primary: #f0f0f0;
+  --text-muted: #a0a0a8;
+  --text-dim: #78787a;
+  --ok: #568a62;
+  --fail: #a33a32;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+html, body {
+  margin: 0;
+  width: 800px;
+  height: 480px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: "DejaVu Sans", sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden { display: none !important; }
+
+/* -- top bar: night-dim toggle + date/time -- */
+.topbar {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  gap: 14px;
+}
+
+.datetime {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-family: "DejaVu Sans Mono", monospace;
+  margin-right: 42px; /* visually balance the dim button on the left */
+}
+
+.circle-btn {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+.circle-btn:active { background: var(--panel-pressed); }
+.circle-btn svg { width: 20px; height: 20px; }
+.circle-btn img { width: 22px; height: 22px; }
+
+#dim-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* -- body: sidebar + main content -- */
+.body-row {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar {
+  width: 66px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  border-right: 1px solid var(--border);
+  background: var(--sidebar-bg);
+}
+
+.vol-track {
+  width: 20px;
+  flex: 1;
+  min-height: 60px;
+  border-radius: 10px;
+  background: #222228;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  touch-action: none;
+  cursor: pointer;
+}
+.vol-fill {
+  width: 100%;
+  background: var(--text-primary);
+  height: 0%;
+}
+
+.sidebar-spacer { flex-shrink: 0; height: 4px; }
+
+/* -- app panels -- */
+.panels {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  min-width: 0;
+}
+
+.panel {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--panel-bg);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.panel:active, .panel.pressed { background: var(--panel-pressed); }
+.panel.launching { background: var(--panel-pressed); pointer-events: none; }
+.panel.running { border-color: var(--ok); }
+
+.panel .well {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  background: #0e0e12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel .well img { width: 38px; height: 38px; }
+
+.panel .name { font-size: 19px; font-weight: bold; }
+.panel .note { font-size: 13px; color: var(--text-dim); margin-top: -8px; text-align: center; padding: 0 8px; }
+
+/* -- settings view -- */
+.settings {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.settings-header {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-header h1 {
+  flex: 1;
+  text-align: center;
+  font-size: 19px;
+  margin: 0;
+  margin-right: 56px;
+}
+
+.settings-body {
+  flex: 1;
+  padding: 20px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.toggle-row span { font-size: 15px; }
+
+.toggle {
+  width: 54px;
+  height: 30px;
+  border-radius: 15px;
+  border: none;
+  background: var(--border);
+  position: relative;
+  cursor: pointer;
+  padding: 0;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transition: transform 0.15s ease;
+}
+.toggle[aria-checked="true"] { background: var(--ok); }
+.toggle[aria-checked="true"]::after { transform: translateX(24px); }
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 48px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--panel-bg);
+  padding: 0 16px;
+  cursor: pointer;
+}
+.picker-row.selected { border-color: var(--ok); }
+.picker-row img { width: 24px; height: 24px; }
+.picker-row .name { font-size: 17px; font-weight: bold; }
+
+.save-btn {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  width: 120px;
+  height: 42px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.save-btn:active { filter: brightness(1.15); }
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 74px;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+.toast.ok { background: var(--ok); }
+.toast.fail { background: var(--fail); }
+
+/* -- night-dim visual feedback: the physical backlight does the real
+   dimming, but a subtle overlay confirms the state changed immediately,
+   before the backlight ioctl/sysfs write is even visible -- */
+#dim-overlay {
+  position: fixed;
+  inset: 0;
+  background: black;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 100;
+}
+#dim-overlay.active { opacity: 0.15; }

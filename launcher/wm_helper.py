@@ -60,6 +60,34 @@ def show_window(winid):
         _run("xdotool", "windowraise", winid)
 
 
+def make_override_redirect(winid, width=800, height=480):
+    """Strip WM decorations permanently and keep them stripped.
+
+    Chromium's --kiosk fullscreen/undecorated state is dynamic (tied to
+    window visibility), unlike a plain NOFRAME window attribute -- so once
+    this window gets unmapped/remapped by hide_window()/show_window() (e.g.
+    switching to another app and back), Chromium can drop out of fullscreen
+    and openbox then re-applies its default titlebar/border on the next
+    map. Marking the window override-redirect makes the WM stop managing it
+    entirely (the same technique overlay_tab.py already uses natively via
+    Xlib), so no unmap/map cycle can ever bring decorations back. Requires
+    an unmap/map cycle of its own to actually drop an existing WM frame.
+    """
+    if not winid:
+        return
+    _run("xdotool", "set_window", "--overrideredirect", "1", winid)
+    _run("xdotool", "windowunmap", winid)
+    _run("xdotool", "windowmap", winid)
+    # Before override-redirect took effect, openbox may have briefly framed
+    # this window in a decorated frame and positioned/sized the *client*
+    # inset within it (e.g. X=10,Y=20,780x455 for a ~10px border + ~20px
+    # titlebar) -- that inset geometry sticks around even after the frame
+    # itself is gone, showing up as a black border around the kiosk UI.
+    # Pin it back to exactly fill the screen.
+    _run("xdotool", "windowmove", winid, "0", "0")
+    _run("xdotool", "windowsize", winid, str(width), str(height))
+
+
 def write_launcher_winid(winid):
     with open(LAUNCHER_WINID_FILE, "w") as f:
         f.write(winid)
