@@ -13,6 +13,12 @@ const toggle = document.getElementById("auto-launch-toggle");
 const appPicker = document.getElementById("app-picker");
 const saveBtn = document.getElementById("save-btn");
 const toast = document.getElementById("toast");
+const panelsEl = document.getElementById("panels");
+const pagerEl = document.getElementById("pager");
+const pgPrev = document.getElementById("pg-prev");
+const pgNext = document.getElementById("pg-next");
+const pgDots = document.getElementById("pg-dots");
+const TILES_PER_PAGE = 4;
 
 let apps = [];
 let config = { default_app: null, auto_launch: false };
@@ -36,10 +42,31 @@ function tick() {
 tick();
 setInterval(tick, 5000);
 
+let gridSig = null;
+
 async function refreshApps() {
   const res = await fetch("/api/apps");
   apps = await res.json();
-  if (!inSettings) renderGrid();
+  if (inSettings) return;
+  // Only rebuild the grid when the set of apps changes; otherwise just
+  // update the running-state borders in place, so a horizontal scroll
+  // position isn't reset out from under the user every few seconds.
+  const sig = apps.map((a) => a.name).join(",");
+  if (sig !== gridSig) {
+    gridSig = sig;
+    renderGrid();
+  } else {
+    updateRunning();
+  }
+}
+
+function updateRunning() {
+  for (const app of apps) {
+    const t = tiles.find((x) => x.name === app.name);
+    if (t) t.running = app.running;
+    const panel = panelsEl.querySelector(`.panel[data-name="${CSS.escape(app.name)}"]`);
+    if (panel) panel.classList.toggle("running", app.running);
+  }
 }
 
 async function refreshVolume() {
@@ -71,31 +98,69 @@ dimBtn.addEventListener("click", async () => {
   setDimUI(data.dimmed);
 });
 
-function renderGrid() {
-  gridView.innerHTML = "";
-  for (const app of apps) {
-    const panel = document.createElement("div");
-    panel.className = "panel" + (app.running ? " running" : "");
-    panel.innerHTML = `
-      <div class="well"><img src="/assets/icons/${app.icon}.svg" alt=""></div>
-      <div class="name">${app.name}</div>
-      <div class="note">${app.note}</div>
-    `;
-    panel.addEventListener("click", () => launchApp(app.name, panel));
-    gridView.appendChild(panel);
-  }
+// The grid is paginated: 4 tiles per page, prev/next swap which 4 render.
+// Explicit page rendering (rather than a horizontal scroll) avoids overlap
+// math when the tile count isn't a multiple of 4.
+let pageIdx = 0;
+let tiles = [];
+
+function buildTiles() {
+  tiles = apps.map((a) => ({
+    name: a.name, icon: a.icon, note: a.note, running: a.running,
+    onClick: (panel) => launchApp(a.name, panel),
+  }));
   // Devices is an in-page view (like Settings), not a spawned process, so
   // it's a synthetic tile rather than an entry in the backend APPS list.
-  const dev = document.createElement("div");
-  dev.className = "panel";
-  dev.innerHTML = `
-    <div class="well"><img src="/assets/icons/devices.svg" alt=""></div>
-    <div class="name">Devices</div>
-    <div class="note">manage paired phones</div>
-  `;
-  dev.addEventListener("click", openDevices);
-  gridView.appendChild(dev);
+  tiles.push({
+    name: "Devices", icon: "devices", note: "manage paired phones",
+    running: false, onClick: () => openDevices(),
+  });
 }
+
+function pageCount() {
+  return Math.max(1, Math.ceil(tiles.length / TILES_PER_PAGE));
+}
+
+function renderGrid() {
+  buildTiles();
+  renderPage();
+}
+
+function renderPage() {
+  pageIdx = Math.max(0, Math.min(pageCount() - 1, pageIdx));
+  panelsEl.innerHTML = "";
+  const start = pageIdx * TILES_PER_PAGE;
+  for (const t of tiles.slice(start, start + TILES_PER_PAGE)) {
+    const panel = document.createElement("div");
+    panel.className = "panel" + (t.running ? " running" : "");
+    panel.dataset.name = t.name;
+    panel.innerHTML = `
+      <div class="well"><img src="/assets/icons/${t.icon}.svg" alt=""></div>
+      <div class="name">${t.name}</div>
+      <div class="note">${t.note}</div>
+    `;
+    panel.addEventListener("click", () => t.onClick(panel));
+    panelsEl.appendChild(panel);
+  }
+  buildPager();
+}
+
+function buildPager() {
+  const n = pageCount();
+  pagerEl.classList.toggle("hidden", n <= 1);
+  pgDots.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("div");
+    dot.className = "dot" + (i === pageIdx ? " active" : "");
+    dot.addEventListener("click", () => { pageIdx = i; renderPage(); });
+    pgDots.appendChild(dot);
+  }
+  pgPrev.disabled = pageIdx <= 0;
+  pgNext.disabled = pageIdx >= n - 1;
+}
+
+pgPrev.addEventListener("click", () => { pageIdx -= 1; renderPage(); });
+pgNext.addEventListener("click", () => { pageIdx += 1; renderPage(); });
 
 async function launchApp(name, panel) {
   if (launching) return;
