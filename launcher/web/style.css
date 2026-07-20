@@ -267,6 +267,106 @@ html, body {
 .toast.ok { background: var(--ok); }
 .toast.fail { background: var(--fail); }
 
+/* -- devices view: manage the dongle's paired phones -- */
+.devices {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+#devices-view .settings-header h1 { margin-right: 0; }
+.dev-monitor {
+  font-family: "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.devices-body {
+  flex: 1;
+  padding: 16px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dev-hint, .dev-error {
+  color: var(--text-muted);
+  font-size: 15px;
+  text-align: center;
+  padding: 24px 8px;
+}
+.dev-error { color: var(--fail); }
+
+.dev-skel {
+  height: 56px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: linear-gradient(90deg, #1a1a20 25%, #24242c 50%, #1a1a20 75%);
+  background-size: 200% 100%;
+  animation: dev-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes dev-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.dev-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--panel-bg);
+  padding: 8px 14px;
+  margin-bottom: 12px;
+}
+.dev-ico { width: 26px; height: 26px; flex-shrink: 0; }
+.dev-meta { flex: 1; min-width: 0; }
+.dev-name {
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dev-mac {
+  font-family: "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.dev-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.dev-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.dev-btn:active { filter: brightness(1.2); }
+.dev-btn.remove { border-color: var(--border); }
+.dev-btn.confirm-yes { background: var(--fail); border-color: var(--fail); }
+.dev-btn.confirm-no { background: var(--sidebar-bg); }
+.dev-btn.retry { margin: 0 auto; display: block; background: var(--accent); border-color: var(--accent); }
+.dev-btn.forget-all {
+  width: 100%;
+  height: 44px;
+  margin-top: 8px;
+  color: var(--fail);
+  border-color: var(--fail);
+  background: transparent;
+}
+.dev-btn.forget-all[data-armed="1"] { background: var(--fail); color: var(--text-primary); }
+
+.dev-working { font-size: 14px; color: var(--text-muted); font-weight: bold; }
+.dev-working.fail { color: var(--fail); }
+
 /* -- night-dim visual feedback: the physical backlight does the real
    dimming, but a subtle overlay confirms the state changed immediately,
    before the backlight ioctl/sysfs write is even visible -- */

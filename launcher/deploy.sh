@@ -40,7 +40,7 @@ ssh "$HOST" 'command -v chromium >/dev/null || sudo overlayroot-chroot apt-get i
 
 echo "==> Copying launcher files"
 ssh "$HOST" "sudo mkdir -p $REMOTE_LAUNCHER_DIR/assets/icons $REMOTE_LAUNCHER_DIR/web"
-for f in wm_helper.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py; do
+for f in wm_helper.py dongle.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py; do
   ssh "$HOST" "sudo tee $REMOTE_LAUNCHER_DIR/$f >/dev/null" < "$SCRIPT_DIR/$f"
 done
 for f in "$SCRIPT_DIR"/web/*; do

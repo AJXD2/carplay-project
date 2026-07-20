@@ -84,6 +84,17 @@ function renderGrid() {
     panel.addEventListener("click", () => launchApp(app.name, panel));
     gridView.appendChild(panel);
   }
+  // Devices is an in-page view (like Settings), not a spawned process, so
+  // it's a synthetic tile rather than an entry in the backend APPS list.
+  const dev = document.createElement("div");
+  dev.className = "panel";
+  dev.innerHTML = `
+    <div class="well"><img src="/assets/icons/devices.svg" alt=""></div>
+    <div class="name">Devices</div>
+    <div class="note">manage paired phones</div>
+  `;
+  dev.addEventListener("click", openDevices);
+  gridView.appendChild(dev);
 }
 
 async function launchApp(name, panel) {
@@ -159,6 +170,194 @@ saveBtn.addEventListener("click", async () => {
   toast.className = "toast " + (data.ok ? "ok" : "fail");
   setTimeout(() => toast.classList.add("hidden"), 1500);
 });
+
+// -- Devices view: manage the dongle's paired phones over its web panel.
+// Opening it makes the backend borrow wlan0 to join the dongle's AP (shown
+// as a "Connecting" skeleton); leaving it hands wlan0 back.
+const devicesView = document.getElementById("devices-view");
+const devicesBackBtn = document.getElementById("devices-back-btn");
+const devicesContent = document.getElementById("devices-content");
+const devMonitor = document.getElementById("dev-monitor");
+
+let inDevices = false;
+let devicesPoll = null;
+let confirmOpen = false;      // a per-row "Remove?" confirm is showing
+let lastDevSig = null;        // skip list rebuilds when nothing changed
+let busy = false;             // a remove/forget request is in flight
+
+function openDevices() {
+  inDevices = true;
+  lastDevSig = null;
+  document.querySelector(".sidebar").classList.add("hidden");
+  gridView.classList.add("hidden");
+  devicesView.classList.remove("hidden");
+  renderConnecting();
+  loadDevices();
+  devicesPoll = setInterval(loadDevices, 2500);
+}
+
+function closeDevices() {
+  inDevices = false;
+  if (devicesPoll) { clearInterval(devicesPoll); devicesPoll = null; }
+  devicesView.classList.add("hidden");
+  document.querySelector(".sidebar").classList.remove("hidden");
+  gridView.classList.remove("hidden");
+  devMonitor.textContent = "";
+  // best-effort: give wlan0 back to the home network
+  fetch("/api/devices/disconnect", { method: "POST" }).catch(() => {});
+}
+
+devicesBackBtn.addEventListener("click", closeDevices);
+
+async function loadDevices() {
+  if (!inDevices || busy) return;
+  let d;
+  try {
+    const res = await fetch("/api/devices");
+    d = await res.json();
+  } catch (e) {
+    if (inDevices) renderError("launcher backend unreachable");
+    return;
+  }
+  if (!inDevices) return;
+  if (d.state === "connecting" || d.state === "idle") {
+    renderConnecting();
+  } else if (d.state === "error") {
+    renderError(d.error || "could not reach the dongle");
+  } else if (d.state === "ready") {
+    renderReady(d.devices || [], d.monitor || {});
+  }
+}
+
+function renderConnecting() {
+  devMonitor.textContent = "";
+  lastDevSig = null;
+  devicesContent.innerHTML = `
+    <div class="dev-hint">Connecting to dongle Wi-Fi...</div>
+    <div class="dev-skel"></div><div class="dev-skel"></div><div class="dev-skel"></div>`;
+}
+
+function renderError(msg) {
+  devMonitor.textContent = "";
+  lastDevSig = null;
+  devicesContent.innerHTML = `
+    <div class="dev-error">${escapeHtml(msg)}</div>
+    <button class="dev-btn retry" id="dev-retry">Retry</button>`;
+  document.getElementById("dev-retry").addEventListener("click", () => {
+    renderConnecting();
+    loadDevices();
+  });
+}
+
+function renderReady(devices, monitor) {
+  // status strip in the header
+  if (typeof monitor.CpuTemp === "number") {
+    const t = Math.round(monitor.CpuTemp);
+    const cpu = Math.round(monitor.CpuRate ?? 0);
+    const mem = Math.round(monitor.MemRate ?? 0);
+    devMonitor.textContent = `dongle ${t}°C · cpu ${cpu}% · mem ${mem}%`;
+  }
+  // don't rebuild the list mid-confirm, or if the device set is unchanged
+  const sig = devices.map((x) => x.id).join(",");
+  if (confirmOpen || sig === lastDevSig) return;
+  lastDevSig = sig;
+
+  if (devices.length === 0) {
+    devicesContent.innerHTML = `<div class="dev-hint">No paired devices.</div>`;
+    return;
+  }
+  devicesContent.innerHTML = "";
+  for (const dev of devices) {
+    const row = document.createElement("div");
+    row.className = "dev-row";
+    row.innerHTML = `
+      <img class="dev-ico" src="/assets/icons/devices.svg" alt="">
+      <div class="dev-meta">
+        <div class="dev-name">${escapeHtml(dev.name || "Unknown")}</div>
+        <div class="dev-mac">${escapeHtml(dev.id)}</div>
+      </div>
+      <div class="dev-actions"></div>`;
+    buildRemoveButton(row.querySelector(".dev-actions"), dev);
+    devicesContent.appendChild(row);
+  }
+  const forget = document.createElement("button");
+  forget.className = "dev-btn forget-all";
+  forget.textContent = "Forget all devices";
+  forget.addEventListener("click", () => confirmForgetAll(devices));
+  devicesContent.appendChild(forget);
+}
+
+function buildRemoveButton(container, dev) {
+  container.innerHTML = "";
+  const btn = document.createElement("button");
+  btn.className = "dev-btn remove";
+  btn.textContent = "Remove";
+  btn.addEventListener("click", () => {
+    confirmOpen = true;
+    container.innerHTML = "";
+    const yes = document.createElement("button");
+    yes.className = "dev-btn confirm-yes";
+    yes.textContent = "Remove?";
+    yes.addEventListener("click", () => removeDevice(dev, container));
+    const no = document.createElement("button");
+    no.className = "dev-btn confirm-no";
+    no.textContent = "Cancel";
+    no.addEventListener("click", () => { confirmOpen = false; buildRemoveButton(container, dev); });
+    container.appendChild(yes);
+    container.appendChild(no);
+  });
+  container.appendChild(btn);
+}
+
+async function removeDevice(dev, container) {
+  busy = true;
+  container.innerHTML = `<span class="dev-working">Removing...</span>`;
+  try {
+    const res = await fetch("/api/devices/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mac: dev.id }),
+    });
+    const data = await res.json();
+    if (!data.ok) container.innerHTML = `<span class="dev-working fail">Failed</span>`;
+  } catch (e) {
+    container.innerHTML = `<span class="dev-working fail">Failed</span>`;
+  } finally {
+    busy = false;
+    confirmOpen = false;
+    lastDevSig = null; // force a fresh list on next poll
+    loadDevices();
+  }
+}
+
+async function confirmForgetAll(devices) {
+  const forget = devicesContent.querySelector(".forget-all");
+  if (!forget || forget.dataset.armed !== "1") {
+    if (forget) { forget.dataset.armed = "1"; forget.textContent = "Tap again to forget ALL"; }
+    setTimeout(() => { if (forget) { forget.dataset.armed = "0"; forget.textContent = "Forget all devices"; } }, 3000);
+    return;
+  }
+  busy = true;
+  confirmOpen = false;
+  devicesContent.innerHTML = `<div class="dev-hint">Removing ${devices.length} devices...</div>`;
+  for (const dev of devices) {
+    try {
+      await fetch("/api/devices/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mac: dev.id }),
+      });
+    } catch (e) { /* keep going; the final reload shows the real state */ }
+  }
+  busy = false;
+  lastDevSig = null;
+  loadDevices();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 
 volDown.addEventListener("click", async () => {
   const res = await fetch("/api/volume", {
