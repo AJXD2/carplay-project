@@ -135,6 +135,53 @@ you can write to `ajxd2`-owned files without `sudo` at all.
   typical single-user Linux desktop, which is how the SD-card-editing
   trick above works without needing the Pi's password at all.
 
+## The CarPlay dongle itself (Carlinkit CPC200-CCPA)
+
+The physical dongle enumerates as USB `1314:1521` (`Magic Communication
+Tec.` / `Auto Box` in the descriptors, broadcasting as `AutoKit-8169`
+over WiFi/BT), and is a genuine Carlinkit CPC200-CCPA (confirmed from
+the printing on the physical unit) -- an i.MX6UL-based embedded Linux
+board, 16MB flash. It reports `boxType: YA`, `productType: A15W`,
+`hwVersion: YMA0-WN16-0003`, software `2025.02.25.1521CHY`.
+
+`react-carplay`/`node-carplay` (the app this repo runs) talks to it
+over a simple bulk-USB wire protocol reverse-engineered upstream in
+`rhysmorgan134/node-CarPlay`'s `src/modules/messages/{common,sendable,
+readable}.ts`. Worth knowing if you ever need to script against the
+dongle directly (`python3-usb`, install via `sudo overlayroot-chroot
+apt-get install -y python3-usb`, works fine for this since it's just
+bulk transfers on a vendor-specific interface):
+
+- **Reads available**: manufacturer/serial (USB descriptor), software
+  version, box identity/config including the full **paired-device
+  list** (`BoxInfo.DevList` -- MAC, name, index, per device), a
+  separate raw `BluetoothPairedList` string, box's own WiFi/BT name,
+  a live HiCar pairing link, and now-playing media (song/artist/album
+  art -- this is genuinely live personal data, be careful taking
+  screenshots of a running session).
+- **Writes available**: night mode, WiFi band, media transport
+  commands, accept/reject call, and file-based cosmetic config
+  (`SendFile` to `/etc/box_name`, `/etc/airplay.conf`,
+  `/etc/icon_*.png` etc) -- see `launcher/tools/set_dongle_icon.py`,
+  which sets a custom name + icon on the phone's CarPlay home-screen
+  tile using exactly this mechanism. **File writes to `/etc/` on the
+  dongle appear to only take effect after a physical power-cycle of
+  the dongle itself** (unplug/replug), not just a CarPlay app restart.
+- **No device-removal capability found.** Despite reading the full
+  paired-device list, there is no command in the protocol (documented
+  or otherwise -- tried ~30 undocumented `Command` values around the
+  known pairing cluster) that removes/forgets a specific paired phone.
+  To disconnect a phone from this dongle, use the phone's own
+  Settings -> General -> CarPlay -> (car) -> "Forget This Car".
+- **Don't bother with alternate/custom firmware.** Carlinkit added an
+  activation-lock mechanism (`/etc/uuid_sign`) after community
+  reverse-engineering became known to them; a firmware that fails
+  activation has no known unlock path. There's also no documented live
+  root/shell access to this hardware (no UART/SSH/telnet), only
+  hardware flash programming, which isn't worth the bricking risk for
+  a device-management feature that isn't confirmed to exist in any
+  firmware version anyway.
+
 ## What's actually running
 
 - `launcher/launcher.py` (see below) is now what autostarts, not
