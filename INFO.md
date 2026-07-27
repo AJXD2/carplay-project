@@ -167,20 +167,107 @@ bulk transfers on a vendor-specific interface):
   tile using exactly this mechanism. **File writes to `/etc/` on the
   dongle appear to only take effect after a physical power-cycle of
   the dongle itself** (unplug/replug), not just a CarPlay app restart.
-- **No device-removal capability found.** Despite reading the full
-  paired-device list, there is no command in the protocol (documented
-  or otherwise -- tried ~30 undocumented `Command` values around the
-  known pairing cluster) that removes/forgets a specific paired phone.
-  To disconnect a phone from this dongle, use the phone's own
-  Settings -> General -> CarPlay -> (car) -> "Forget This Car".
+- **Device removal is NOT in the USB protocol -- but it exists in the
+  dongle's own web admin panel.** Over the USB wire protocol there is no
+  remove/forget command (confirmed: tried the documented set plus
+  `BoxSettings` (0x19) writes carrying `DevList`/`delDevList`/`removeDev`
+  fields, plus `SendFile` to guessed paired-store paths, plus a real
+  physical power-cycle -- the `DevList` survived all of it). The removal
+  capability lives instead in the dongle's **built-in HTTP admin panel**,
+  which the USB investigation never looked at:
+  - The dongle runs a WiFi AP `AutoKit-8169` (WPA2-PSK, password
+    `12345678`, BSSID `00:e0:4c:64:1b:24`). Joining it gets a DHCP lease
+    on **`192.168.43.0/24`** (this unit -- *not* the `192.168.50.x` the
+    generic Carlinkit docs claim), with the panel at
+    **`http://192.168.43.1`** (a Vue SPA). The Pi has a single `wlan0`,
+    so joining this AP drops the Pi's own network unless it also has
+    `eth0` up -- pin SSH to the `eth0` IP first, then repurpose `wlan0`.
+  - The panel's entire API is one endpoint: `POST /cgi-bin/server.cgi`,
+    multipart form fields `cmd` / `item` / `val` / `ts` (ms) / `sign`
+    (md5, computed by the panel JS). Observed calls:
+    - **Remove one paired device:** `cmd=set, item=delDev,
+      val=<MAC>` -> `{"err":0}`. Verified: removing `A4:CF:99:0B:A3:16`
+      dropped the box's `DevList` from 4 to 3, confirmed by an
+      independent USB `BoxInfo` read afterward.
+    - Read full state (incl. `DevList`, `Settings`, `BoxInfo`):
+      `cmd=infos`.
+    - Reboot the dongle: `cmd=restart`.
+  - Using the panel UI from a phone (join the AP, browse to
+    `192.168.43.1`, delete the device) is the easy path -- the JS signs
+    requests for you. It can also be scripted headless: the signing was
+    reverse-engineered and `launcher/tools/ccpa_panel.py` implements it
+    (see the full API section below).
+  - Simpler alternatives that also work: the phone's own Settings ->
+    General -> CarPlay -> (car) -> "Forget This Car", or a full wipe via
+    the panel's factory reset / the physical pinhole reset button (clears
+    ALL pairings + WiFi/BT config, so every phone re-pairs).
 - **Don't bother with alternate/custom firmware.** Carlinkit added an
   activation-lock mechanism (`/etc/uuid_sign`) after community
   reverse-engineering became known to them; a firmware that fails
   activation has no known unlock path. There's also no documented live
   root/shell access to this hardware (no UART/SSH/telnet), only
-  hardware flash programming, which isn't worth the bricking risk for
-  a device-management feature that isn't confirmed to exist in any
-  firmware version anyway.
+  hardware flash programming, which isn't worth the bricking risk --
+  especially now that device management is reachable through the stock
+  web panel above without touching firmware at all.
+
+### The dongle web panel API (`server.cgi`) -- full map
+
+The panel at `http://192.168.43.1` is a Vue SPA; its entire backend is
+one endpoint, `POST /cgi-bin/server.cgi` (multipart/form-data). Client:
+`launcher/tools/ccpa_panel.py` (stdlib-only, works headless or through
+an `ssh -D` SOCKS tunnel with `--proxy socks5h://127.0.0.1:1080`).
+
+**Request signing** (reversed from `PublicV2.js` `signFormData`, verified
+byte-for-byte against captured requests):
+
+- Every request carries `ts` (epoch ms) and `sign`.
+- `sign = md5( "k1=v1&k2=v2&..." + SALT )` where the pairs are all the
+  other fields (`cmd`, `item`, `val`, `ts`, ...), **keys sorted
+  ascending**, joined by `&`. `SALT = "HweL*@M@JEYUnvPw9G36MVB9X6u@2qxK"`
+  (hardcoded in the JS bundle).
+- Empty `item`/`val` are omitted entirely (not sent as empty) -- send
+  them and the signature won't match, you get `403`.
+- Only the activation call (`cmd=a`) already contains a field named
+  `sign` (a cloud-issued one); `signFormData` renames it to `sg` before
+  computing its own `sign`.
+
+**Commands seen in the bundle / verified live:**
+
+| `cmd` | args | effect | kind |
+|---|---|---|---|
+| `infos` | -- | full state: `CarInfo`, `BoxInfo`, `Settings` (49 keys), `DevList`, `LangList`, `WifiChannelList` | read |
+| `BoxMonitor` | -- | live dongle telemetry: `CpuRate`, `CpuTemp`, `CpuFreq`, `MemRate`, `WifiRX`, `WifiTX` | read |
+| `upgradeState` | -- | firmware-update progress: `err`, `progress`, `failReason` | read |
+| `logFile` / `appLogFile` / `sdkLogFile` | -- | download an obfuscated log blob (prefixed `^^^^$$$`, ~MBs) | read |
+| `set` | `item`,`val` | change one thing (see items below) | write |
+| `carInfo` | `brand`/`model`/`year`/`userid` | set the car identity shown in the panel | write |
+| `restart` | -- | reboot the dongle | action |
+| `reset` / `resetApp` | -- | confirm-dialog resets in the UI (settings/app reset); **not tested here** -- treat as destructive | action |
+| `a` | `is`,`code`,`sign`(->`sg`),`tabId`,`burnType` | activation handshake (ties to `BoxInfo.needActive=1` + the cloud call to `file.paplink.cn/ad/a/upgrade/check2Box`) | action |
+
+**`cmd=set item=<...>`** items are the `Settings` keys from `infos`
+(`fps`, `gps`, `lang`, `mediaDelay`, `autoConn`, `echoDelay`, `micGain`,
+`wifiChannel`, `wifi5GSwitch`, `resolutionWidth`, `resolutionHeight`,
+`ScreenDPI`, `naviVolume`, `autoUpdate`, `carLinkType`, `BtAudio`,
+`MicMode`, ... 49 total), plus special items: **`delDev`** (`val=<MAC>`,
+removes a paired device -- the whole point), `resetLogo` (`val=""`), and
+`lang` (special-cased in the JS).
+
+Quick examples:
+
+```sh
+# on a machine joined to the AutoKit-8169 AP (or add --proxy for a tunnel)
+python3 launcher/tools/ccpa_panel.py listdev            # paired devices
+python3 launcher/tools/ccpa_panel.py deldev A4:CF:99:0B:A3:16
+python3 launcher/tools/ccpa_panel.py monitor            # cpu/temp/mem
+python3 launcher/tools/ccpa_panel.py get wifiChannel
+python3 launcher/tools/ccpa_panel.py set wifiChannel 149
+```
+
+To reach it from the Pi without a phone: the Pi's `wlan0` can join the
+AP (see `AutoKit-8169`/`12345678` above) while SSH stays on `eth0`; or a
+laptop can `ssh -D 1080 -N ajxd2@<pi-eth0-ip>` and point the tool at
+`--proxy socks5h://127.0.0.1:1080`.
 
 ## What's actually running
 
@@ -300,6 +387,21 @@ stack CarPlay's own Electron app already uses reliably on this device.
 - **`launcher/logs.py`**: an on-screen tail of `/tmp/launcher_autolaunch.log`,
   `journalctl`, and `dmesg`, since this device has no attached terminal --
   reading logs otherwise means SSHing in from another machine.
+- **Devices app** (an in-page view like Settings, not a spawned process --
+  a synthetic grid tile in `app.js`, backed by `launcher/dongle.py`): lists
+  the dongle's paired phones and removes them, plus a live dongle
+  CPU/temp/mem strip. It talks to the dongle's web panel
+  (`http://192.168.43.1/cgi-bin/server.cgi`, the signed API documented in
+  the dongle section above) since the USB protocol can't edit the paired
+  list. Because that panel is only reachable over the dongle's WiFi AP,
+  opening the app makes `dongle.py` **borrow `wlan0`** to join
+  `AutoKit-8169` (a "Connecting..." skeleton shows meanwhile), and closing
+  it hands `wlan0` back to the home network via `wpa_cli reconfigure`. So
+  using this app briefly takes `wlan0` off whatever it was on -- harmless
+  for the kiosk (served from localhost) but it will interrupt an
+  SSH-over-`wlan0` session (use `eth0`). Removal is confirm-gated per row,
+  with a separate tap-twice "Forget all". `launcher/tools/ccpa_panel.py` is
+  the standalone CLI equivalent for off-device use.
 - Visual style shares the same dark, muted palette as `pi-monitor/dunstrc`'s
   "Refined Card" style (same background/border/text colors, translated
   from the pygame RGB tuples into CSS hex values) so the whole UI reads as

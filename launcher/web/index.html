@@ -24,7 +24,18 @@
       </button>
     </aside>
 
-    <main id="grid-view" class="panels"></main>
+    <main id="grid-view" class="grid-wrap">
+      <div id="panels" class="panels"></div>
+      <nav id="pager" class="pager hidden">
+        <button id="pg-prev" class="pg-btn" aria-label="Previous screen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+        </button>
+        <div id="pg-dots" class="dots"></div>
+        <button id="pg-next" class="pg-btn" aria-label="Next screen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+      </nav>
+    </main>
 
     <section id="settings-view" class="settings hidden">
       <header class="settings-header">
@@ -41,6 +52,19 @@
         <div id="app-picker" class="picker"></div>
         <button id="save-btn" class="save-btn">Save</button>
         <div id="toast" class="toast hidden"></div>
+      </div>
+    </section>
+
+    <section id="devices-view" class="devices hidden">
+      <header class="settings-header">
+        <button id="devices-back-btn" class="circle-btn" aria-label="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+        </button>
+        <h1>Devices</h1>
+        <div id="dev-monitor" class="dev-monitor"></div>
+      </header>
+      <div class="devices-body">
+        <div id="devices-content"></div>
       </div>
     </section>
   </div>

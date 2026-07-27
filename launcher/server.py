@@ -20,6 +20,7 @@ import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import dongle
 import wm_helper as wm
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -83,6 +84,7 @@ APPS = [
 
 launcher_winid = None
 launching = False
+dongle_mgr = dongle.DongleManager()
 
 
 def log(msg):
@@ -309,6 +311,22 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, config)
         elif self.path == "/api/dim":
             self._json(200, {"dimmed": get_dimmed()})
+        elif self.path == "/api/devices":
+            # Opening the Devices view: kick off the wlan0 join if needed and
+            # report a simple state the UI can show a skeleton against. Only
+            # actually query the dongle once the link is up.
+            dongle_mgr.ensure_connecting()
+            status = dongle_mgr.status()
+            payload = {"state": status["state"], "error": status["error"],
+                       "devices": None, "monitor": None}
+            if status["state"] == "ready":
+                try:
+                    payload["devices"] = dongle_mgr.devices()
+                    payload["monitor"] = dongle_mgr.monitor()
+                except Exception as e:
+                    payload["state"] = "error"
+                    payload["error"] = f"dongle query failed: {e}"
+            self._json(200, payload)
         else:
             self._static(self.path)
 
@@ -347,6 +365,22 @@ class Handler(BaseHTTPRequestHandler):
             dimmed = bool(data.get("dimmed"))
             ok = set_dimmed(dimmed)
             self._json(200, {"ok": ok, "dimmed": dimmed if ok else get_dimmed()})
+        elif self.path == "/api/devices/remove":
+            mac = data.get("mac")
+            if not mac:
+                self._json(400, {"ok": False, "reason": "missing mac"})
+                return
+            try:
+                ok = dongle_mgr.remove(mac)
+            except Exception as e:
+                self._json(200, {"ok": False, "reason": str(e)})
+                return
+            self._json(200, {"ok": ok})
+        elif self.path == "/api/devices/disconnect":
+            # Leaving the Devices view: hand wlan0 back to its home network so
+            # the app never permanently hijacks the Pi's Wi-Fi.
+            ok = dongle_mgr.disconnect()
+            self._json(200, {"ok": ok})
         else:
             self._json(404, {"ok": False, "reason": "not found"})
 
