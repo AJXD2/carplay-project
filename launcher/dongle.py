@@ -14,6 +14,7 @@ verified against captured traffic:
 See launcher/tools/ccpa_panel.py for the standalone CLI version.
 """
 import hashlib
+import json
 import socket
 import subprocess
 import threading
@@ -57,7 +58,6 @@ def cgi(cmd, item=None, val=None, timeout=6):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read().decode("utf-8", "replace")
     try:
-        import json
         return json.loads(raw)
     except ValueError:
         return raw
@@ -109,20 +109,27 @@ def _network_ids():
     return autokit, current
 
 
-def join_ap(poll_timeout=20):
+def join_ap(poll_timeout=20, cancelled=lambda: False):
     """Join wlan0 to the dongle AP. Returns True once the panel is reachable.
-    Idempotent: returns immediately if already reachable."""
+    Idempotent: returns immediately if already reachable. `cancelled` is
+    checked before wlan0 is switched over and while polling, so a caller
+    that gave up (the user left the Devices view) never leaves wlan0
+    parked on the dongle's AP."""
     if reachable():
         return True
+    if cancelled():
+        return False
     autokit, _ = _network_ids()
     if autokit is None:
         autokit = _wpa("add_network").stdout.strip().splitlines()[-1].strip()
         _wpa("set_network", autokit, "ssid", f'"{AP_SSID}"')
         _wpa("set_network", autokit, "psk", f'"{AP_PSK}"')
+    if cancelled():
+        return False
     _wpa("enable_network", autokit)
     _wpa("select_network", autokit)  # disables the others until reconfigure
     deadline = time.time() + poll_timeout
-    while time.time() < deadline:
+    while time.time() < deadline and not cancelled():
         if reachable():
             return True
         time.sleep(1)
@@ -147,6 +154,11 @@ class DongleManager:
     States: idle -> connecting -> ready (or error). Connecting happens on a
     background thread so the HTTP handler returns instantly and the UI can
     show a skeleton.
+
+    Every connect attempt and every disconnect bumps a generation counter.
+    A worker whose generation is stale (the user left the view while it was
+    still joining) hands wlan0 back instead of reporting ready -- otherwise
+    a quick open-then-back would strand wlan0 on the dongle's AP.
     """
 
     def __init__(self):
@@ -154,18 +166,24 @@ class DongleManager:
         self.state = "idle"      # idle | connecting | ready | error
         self.error = None
         self._thread = None
+        self._gen = 0
 
-    def _connect_worker(self):
+    def _connect_worker(self, gen):
+        stale = lambda: self._gen != gen  # noqa: E731
         try:
-            ok = join_ap()
-            with self._lock:
-                if ok:
-                    self.state, self.error = "ready", None
-                else:
-                    self.state, self.error = "error", "could not reach dongle Wi-Fi"
+            ok = join_ap(cancelled=stale)
         except Exception as e:  # noqa: BLE001 - surface any failure to the UI
-            with self._lock:
-                self.state, self.error = "error", str(e)
+            ok, err = False, str(e)
+        else:
+            err = None if ok else "could not reach dongle Wi-Fi"
+        with self._lock:
+            if stale():
+                restore_wifi()
+                return
+            if ok:
+                self.state, self.error = "ready", None
+            else:
+                self.state, self.error = "error", err
 
     def ensure_connecting(self):
         """Kick off (or reuse) a connect attempt. Non-blocking."""
@@ -174,10 +192,19 @@ class DongleManager:
                 return self.state
             if self.state == "connecting":
                 return self.state
+            self._gen += 1
             self.state, self.error = "connecting", None
-            self._thread = threading.Thread(target=self._connect_worker, daemon=True)
+            self._thread = threading.Thread(
+                target=self._connect_worker, args=(self._gen,), daemon=True)
             self._thread.start()
             return self.state
+
+    def reset_on_startup(self):
+        """If a previous server run died with wlan0 still on the dongle's AP,
+        give it back to the home network."""
+        if current_ssid() == AP_SSID:
+            return restore_wifi()
+        return True
 
     def status(self):
         with self._lock:
@@ -200,5 +227,6 @@ class DongleManager:
 
     def disconnect(self):
         with self._lock:
+            self._gen += 1
             self.state, self.error = "idle", None
         return restore_wifi()

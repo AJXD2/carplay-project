@@ -1,7 +1,6 @@
 #!/bin/bash
 # Deploys the launcher (Chromium-kiosk frontend + Python backend, CarPlay +
-# Flappy Bird + Info + Trip Calc + Logs as the apps it launches, with the
-# always-on-top overlay tab) to the Pi over SSH, writing directly through
+# Flappy Bird as the apps it launches, with the always-on-top overlay tab) to the Pi over SSH, writing directly through
 # /media/root-ro so it persists across reboots, same approach as
 # pi-monitor/deploy.sh. See the repo README for how/why this works on an
 # overlayroot read-only root.
@@ -39,17 +38,21 @@ echo "==> Ensuring chromium is installed (persistent, idempotent)"
 ssh "$HOST" 'command -v chromium >/dev/null || sudo overlayroot-chroot apt-get install -y chromium'
 
 echo "==> Copying launcher files"
-ssh "$HOST" "sudo mkdir -p $REMOTE_LAUNCHER_DIR/assets/icons $REMOTE_LAUNCHER_DIR/web"
-for f in wm_helper.py dongle.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py; do
-  ssh "$HOST" "sudo tee $REMOTE_LAUNCHER_DIR/$f >/dev/null" < "$SCRIPT_DIR/$f"
-done
-for f in "$SCRIPT_DIR"/web/*; do
-  ssh "$HOST" "sudo tee $REMOTE_LAUNCHER_DIR/web/$(basename "$f") >/dev/null" < "$f"
-done
-for f in "$SCRIPT_DIR"/assets/icons/*.svg "$SCRIPT_DIR"/assets/icons/*.png; do
-  ssh "$HOST" "sudo tee $REMOTE_LAUNCHER_DIR/assets/icons/$(basename "$f") >/dev/null" < "$f"
-done
+# One tar stream instead of an ssh per file; picks up subdirectories
+# (web/fonts) automatically. --overwrite rewrites existing files in place:
+# replacing them with new inodes (tar's default) leaves the running
+# overlay serving the old cached copy until the next reboot.
+tar -C "$SCRIPT_DIR" --exclude=__pycache__ -cf - \
+    wm_helper.py dongle.py persist.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py \
+    web assets/icons tools \
+  | ssh "$HOST" "sudo mkdir -p $REMOTE_LAUNCHER_DIR && sudo tar -C $REMOTE_LAUNCHER_DIR --no-same-owner --overwrite -xf -"
 ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $REMOTE_LAUNCHER_DIR"
+
+echo "==> Installing the audio-patched react-carplay (idempotent; see tools/patch_carplay_audio.py)"
+ssh "$HOST" "sudo python3 $REMOTE_LAUNCHER_DIR/tools/patch_carplay_audio.py"
+
+echo "==> Installing ~/.asoundrc (USB audio adapter by name)"
+ssh "$HOST" "sudo tee $REMOTE_HOME/.asoundrc >/dev/null && sudo chown ajxd2:ajxd2 $REMOTE_HOME/.asoundrc" < "$SCRIPT_DIR/system/asoundrc"
 
 echo "==> Seeding config.json (only if it doesn't already exist -- it's device-owned state, saved live from the settings screen, not repo-managed)"
 ssh "$HOST" "sudo test -f $REMOTE_LAUNCHER_DIR/config.json || echo '{\"default_app\": null, \"auto_launch\": false}' | sudo tee $REMOTE_LAUNCHER_DIR/config.json >/dev/null"
@@ -75,6 +78,13 @@ if sudo grep -qF "\$OLD_LAUNCHER_LINE" "\$AUTOSTART" 2>/dev/null; then
   echo "  removed the old pygame launcher.py autostart block"
 fi
 
+# The startup mute/unmute of the audio adapter used card index 1, which is
+# now HDMI; address the adapter by name instead.
+if sudo grep -q 'amixer -c 1 ' "\$AUTOSTART" 2>/dev/null; then
+  sudo sed -i 's/amixer -c 1 /amixer -c Device /' "\$AUTOSTART"
+  echo "  pointed the startup amixer lines at the USB audio adapter"
+fi
+
 if ! sudo grep -qF "\$MARK" "\$AUTOSTART" 2>/dev/null; then
   sudo tee -a "\$AUTOSTART" >/dev/null <<'BLOCK'
 
@@ -94,33 +104,45 @@ fi
 echo "==> Attempting to remount root-ro back to read-only (best effort)"
 ssh "$HOST" 'sudo mount -o remount,ro /media/root-ro 2>&1 || echo "  (kernel wont allow remount while overlay active this boot -- fine, resets clean on next reboot)"'
 
-echo "==> Killing old launcher stack"
+echo "==> Restarting the launcher stack"
+# Once --autostart has been applied, server.py runs under a respawn loop in
+# openbox autostart. In that case, kill the stack and let the loop bring
+# server.py back (it clears out stale Chromium/CarPlay itself on startup);
+# starting a second copy by hand would race the loop for port 8734.
+#
 # The AppImage-mount wrapper process's comm name gets truncated to
-# "react-carplay.A" by the kernel's 15-char TASK_COMM_LEN limit, so `pkill
-# -x react-carplay.AppImage` (exact comm match) never matches it and it
-# survived every previous restart as a stale leftover process -- match its
-# full command line with -f instead, which isn't length-limited.
-ssh "$HOST" '
-  pkill -9 -x python3 2>/dev/null || true
-  pkill -9 -x react-carplay 2>/dev/null || true
-  pkill -9 -f "/home/ajxd2/react-carplay.AppImage" 2>/dev/null || true
-' || true
-sleep 1
-# Killing chromium's process tree with -9 tends to drop the current SSH
-# session for a couple of seconds (looks like a brief system-wide hiccup,
-# maybe GPU/DRM cleanup) even though the Pi itself is fine -- so this runs
-# as its own, last, ssh call, tolerating a non-zero/dropped-connection exit.
-ssh "$HOST" 'pkill -9 -f chromium 2>/dev/null || true' || true
-sleep 3
-
-echo "==> Restarting live launcher stack for immediate effect"
-ssh "$HOST" '
-  rm -f /tmp/carplay_pi_launcher_winid
-  export DISPLAY=:0
-  export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-  setsid nohup python3 /home/ajxd2/launcher/server.py >/tmp/server.log 2>&1 < /dev/null &
+# "react-carplay.A" by the kernel's 15-char TASK_COMM_LEN limit, so it's
+# matched by full command line with -f instead of -x.
+if ssh "$HOST" 'pgrep -f "^sh /home/ajxd2/.config/openbox/autostart" >/dev/null'; then
+  ssh "$HOST" '
+    pkill -9 -f "^python3 /home/ajxd2/launcher/(server|overlay_tab|flappy).py" 2>/dev/null || true
+    pkill -9 -x react-carplay 2>/dev/null || true
+    pkill -9 -f "/home/ajxd2/react-carplay.AppImage" 2>/dev/null || true
+  ' || true
+  # Killing chromium's process tree with -9 tends to drop the current SSH
+  # session for a couple of seconds, so it runs as its own ssh call.
+  ssh "$HOST" 'pkill -9 -f -- "--user-data-dir=/tmp/chromium-kiosk-profile" 2>/dev/null || true' || true
   sleep 2
-  setsid nohup python3 /home/ajxd2/launcher/overlay_tab.py >/tmp/overlay_tab.log 2>&1 < /dev/null &
-'
-
-echo "==> Done. Deployed and running live. Re-run with --autostart once verified to make it boot-persistent."
+  ssh "$HOST" '
+    export DISPLAY=:0
+    setsid nohup python3 /home/ajxd2/launcher/overlay_tab.py >/tmp/overlay_tab.log 2>&1 < /dev/null &
+  '
+  echo "==> Done. The autostart loop is restarting server.py now."
+else
+  ssh "$HOST" '
+    pkill -9 -f "^python3 /home/ajxd2/launcher/" 2>/dev/null || true
+    pkill -9 -x react-carplay 2>/dev/null || true
+    pkill -9 -f "/home/ajxd2/react-carplay.AppImage" 2>/dev/null || true
+  ' || true
+  ssh "$HOST" 'pkill -9 -f -- "--user-data-dir=/tmp/chromium-kiosk-profile" 2>/dev/null || true' || true
+  sleep 2
+  ssh "$HOST" '
+    rm -f /tmp/carplay_pi_launcher_winid
+    export DISPLAY=:0
+    export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+    setsid nohup python3 /home/ajxd2/launcher/server.py >/tmp/server.log 2>&1 < /dev/null &
+    sleep 2
+    setsid nohup python3 /home/ajxd2/launcher/overlay_tab.py >/tmp/overlay_tab.log 2>&1 < /dev/null &
+  '
+  echo "==> Done. Deployed and running live. Re-run with --autostart once verified to make it boot-persistent."
+fi
