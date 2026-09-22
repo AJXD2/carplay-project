@@ -245,13 +245,26 @@ byte-for-byte against captured requests):
 | `reset` / `resetApp` | -- | confirm-dialog resets in the UI (settings/app reset); **not tested here** -- treat as destructive | action |
 | `a` | `is`,`code`,`sign`(->`sg`),`tabId`,`burnType` | activation handshake (ties to `BoxInfo.needActive=1` + the cloud call to `file.paplink.cn/ad/a/upgrade/check2Box`) | action |
 
-**`cmd=set item=<...>`** items are the `Settings` keys from `infos`
-(`fps`, `gps`, `lang`, `mediaDelay`, `autoConn`, `echoDelay`, `micGain`,
-`wifiChannel`, `wifi5GSwitch`, `resolutionWidth`, `resolutionHeight`,
-`ScreenDPI`, `naviVolume`, `autoUpdate`, `carLinkType`, `BtAudio`,
-`MicMode`, ... 49 total), plus special items: **`delDev`** (`val=<MAC>`,
+**`cmd=set item=<...>`** items are the `Settings` keys from `infos`. The
+panel bundle knows about 49 (`fps`, `gps`, `lang`, `micGain`, `MicMode`,
+...), but **this unit's firmware only reports 14**: `CallQuality`,
+`ScreenDPI`, `Udisk`, `autoConn`, `autoPlay`, `backRecording`, `bitRate`,
+`displaySize`, `mediaDelay`, `mediaSound`, `naviVolume`, `startDelay`,
+`wifi5GSwitch`, `wifiChannel`. Special items: **`delDev`** (`val=<MAC>`,
 removes a paired device -- the whole point), `resetLogo` (`val=""`), and
 `lang` (special-cased in the JS).
+
+Two settings matter for audio (see "Audio" below):
+
+- **`CallQuality`**: 0 = Norm, 1 = Clear, 2 = HD. **Must be 0 here.** At HD
+  (2), the far end of a phone call hears nothing from the car mic, while
+  Siri works fine. react-carplay always sends mic audio as 16 kHz mono, and
+  HD call mode evidently expects something else. Set with
+  `ccpa_panel.py set CallQuality 0`; it's stored on the dongle.
+- **`mediaDelay`**: the dongle's audio jitter buffer in ms (panel default
+  1000, range 300-2000). Setting it here is pointless: react-carplay
+  overwrites it on every connect from its own `config.json`
+  (`BoxSettings { mediaDelay }`), so change it there instead.
 
 Quick examples:
 
@@ -271,7 +284,7 @@ laptop can `ssh -D 1080 -N ajxd2@<pi-eth0-ip>` and point the tool at
 
 ## What's actually running
 
-- `launcher/launcher.py` (see below) is now what autostarts, not
+- `launcher/server.py` (see below) is what autostarts, not
   `react-carplay.AppImage` directly. CarPlay is one of its apps.
 - Desktop stack: `agetty` autologin on `tty1` → `.xinitrc` → `Xorg` →
   `openbox` (window manager) → autostart script launches the launcher +
@@ -294,118 +307,94 @@ what made the bug hard to catch -- real touch and simulated clicks are not
 the same code path in SDL), while Chromium's touch handling is the same
 stack CarPlay's own Electron app already uses reliably on this device.
 
-- **`launcher/server.py`**: the backend that autostarts instead of the old
-  `launcher.py`. Stdlib-only (`http.server.ThreadingHTTPServer` -- no
+- **`launcher/server.py`**: the backend, started by a respawn loop in
+  openbox autostart. Stdlib-only (`http.server.ThreadingHTTPServer` -- no
   `pip`/Flask on this device, deliberately not installed for this). Owns
-  the `APPS` list, process/window state, config, and volume; serves
-  `launcher/web/` and a small JSON API (`GET/POST /api/apps`, `/launch`,
-  `/volume`, `/config`, `/dim`) the frontend calls over `fetch()`. On
-  startup it binds its HTTP port *before* spawning Chromium (so there's no
-  request-before-the-server-exists race), waits for Chromium's window via
-  the same `wait_for_new_active_window()` every other app uses, and
-  registers that window as "home" for `overlay_tab.py` exactly like
-  `launcher.py` used to.
+  the `APPS` list (only the real separate programs: CarPlay and Flappy
+  Bird), process/window state, config, volume, and the JSON API the
+  frontend calls: `/api/status` (one poll for app state, dongle presence,
+  volume, night mode, clock sync), `/api/launch`, `/api/volume`,
+  `/api/config`, `/api/dim`, `/api/info`, `/api/mic`, `/api/trip`,
+  `/api/logs?source=launcher|carplay|system|kernel`, `/api/devices*`.
+  Startup order: bind the HTTP port first, hand `wlan0` back if a previous
+  run died mid-Phones-view, **kill any stale kiosk Chromium / CarPlay /
+  Flappy left by a previous run** (a respawned server can't re-attach to
+  them, and two CarPlays fight over the dongle's USB interface), start the
+  persistence watcher and volume keeper, start Chromium, auto-launch.
   - Chromium's window gets `wm_helper.make_override_redirect()` applied
     once at startup: Chromium's kiosk/fullscreen state is *dynamic* (tied
-    to visibility), unlike pygame's static `NOFRAME` attribute, so the
-    plain unmap/map cycle `hide_window()`/`show_window()` already use for
-    every app would otherwise cause openbox to silently re-decorate the
-    window (titlebar, borders, and a resulting black margin around the
-    kiosk UI) the first time you switch away and back. Override-redirect
-    (the same technique `overlay_tab.py` already used) makes the WM stop
-    managing the window entirely, and the window is explicitly re-pinned
-    to `0,0 800x480` since the brief decorated state can leave stale inset
-    geometry behind even after the frame itself is gone.
-  - Wipes `/tmp/chromium-kiosk-profile` on every start rather than reusing
-    it: a leftover `SingletonLock` from a prior run can make a fresh
-    Chromium think another instance already owns the profile and silently
-    refuse to open a window at all.
-  - Settings screen: pick a default app and toggle whether it auto-launches
-    immediately on boot (skipping the grid). Saved to `launcher/config.json`
-    -- written through `/media/root-ro` (remount rw, `sudo tee`, remount
-    ro, all via `ajxd2`'s passwordless sudo, no redeploy needed) the same
-    way `deploy.sh` itself persists files, just triggered live from the
-    touchscreen instead of over SSH. Auto-launch reuses the exact same
-    `open_app()` path a manual tap uses, with one non-negotiable guard:
-    the launcher/Chromium window is only ever hidden once the target app's
-    window is confirmed, so a broken default app can never strand you on a
-    blank screen with nothing to tap -- the grid stays up as a fallback.
-  - Night-dim (moon icon): writes directly to
-    `/sys/class/backlight/*/brightness` (`ajxd2` is in the `video` group,
-    no sudo needed) rather than a CSS overlay, so it actually dims the
-    physical screen -- CarPlay included, not just the launcher's own page.
-- **`launcher/web/`**: the frontend (`index.html`/`app.js`/`style.css`),
-  plain HTML/CSS/JS with no build step -- there's no reliable internet on
-  this device and the UI surface is small enough that a bundler would add
-  risk for no benefit. Layout: a top bar (night-dim + date/time), a left
-  sidebar (volume +/- and a drag-to-set vertical slider using pointer
-  events, settings gear), and full-height app panels with a lit green
-  border for whichever app is currently running.
+    to visibility), so the plain unmap/map cycle `hide_window()`/
+    `show_window()` use would otherwise let openbox re-decorate it
+    (titlebar, borders, black margin) the first time you switch away and
+    back. Override-redirect makes the WM stop managing the window, and it's
+    re-pinned to `0,0 800x480`.
+  - Wipes `/tmp/chromium-kiosk-profile` on every start: a leftover
+    `SingletonLock` can make a fresh Chromium silently refuse to open.
+  - **Window capture and X id reuse.** Apps are captured by waiting for
+    focus to move to a new, big-enough window. When an app is killed and
+    restarted, X can hand the new window the *same id* the dead one had,
+    and openbox keeps reporting the dead id as active, so "focus moved to a
+    new window" never fires (this showed up as "chromium window never
+    appeared" and "no window found for CarPlay"). `get_active_window()`
+    now ignores ids that no longer exist, and if the wait still times out,
+    `find_window_for_pid_tree()` finds the app's window by process.
+  - Each app's stdout/stderr goes to `/tmp/<app>.log`; CarPlay runs with
+    `--enable-logging=stderr`, so `/tmp/carplay.log` has react-carplay's
+    renderer console (`starting mic`, `UNDERFLOW`, connect events).
+  - Night mode: the moon button writes `/sys/class/backlight/*/brightness`
+    (`ajxd2` is in `video`, no sudo) so the whole physical screen dims,
+    CarPlay included, and switches the launcher to a warmer, darker palette.
+  - `python3 server.py --dev` serves the UI locally without Chromium, X, or
+    any writes to `/media/root-ro`, for frontend work on another machine.
+- **`launcher/web/`**: the frontend, plain HTML/CSS/JS, no build step, fonts
+  bundled in `web/fonts/` (Barlow, OFL) since the device is usually offline.
+  "Dash" style: graphite surfaces and one accent color, instrument-cluster
+  amber, for anything lit (running app, active control, volume level). Home
+  is a big CarPlay tile plus a 3x2 grid; everything else is an in-page view
+  with a Back button, switched by `showView()` in `app.js`:
+  - **Info**: CPU temp, power (undervoltage), dongle presence on USB, a live
+    **microphone level meter** (samples the default source with `parec`),
+    memory, SD card, IPs, and "cleared on reboot" (overlay RAM in use).
+  - **Trip Calc**: trip fuel cost + unit conversion, press-and-hold
+    steppers, values persisted across reboots.
+  - **Logs**: launcher, CarPlay, system journal, kernel; native touch
+    scrolling with a jump-to-newest button.
+  - **Phones**: the dongle's paired phones, via its web panel (below).
+  - **Settings**: open CarPlay or Flappy on startup; applies on tap.
+  - The clock shows `--:--` / "Clock not set" until NTP has synced, rather
+    than the stale time the Pi boots with (see "Clock" below).
 - **`launcher/wm_helper.py`**: shared window-management + audio helpers
-  used by `server.py` and `overlay_tab.py` alike:
-  - `wait_for_new_active_window()` captures a newly-launched app's
-    window by polling `xdotool getactivewindow` until focus lands on
-    something big enough to be the real app (`min_w=400, min_h=300` by
-    default), not a transient splash/helper window. Electron apps
-    (CarPlay included) briefly create small helper windows during
-    startup; capturing one of those instead of the real 800x480 window
-    was the cause of an apparent "CarPlay is glitched" bug that turned
-    out to be a wrong window ID, not a real crash.
-  - `apply_audio_priority(binary)`: **CarPlay always has audio
-    priority**: its sink-input is explicitly unmuted on every app
-    switch and is never touched by anything else the launcher does;
-    whatever else is currently active gets muted instead, so it can
-    never compete with or interrupt CarPlay's audio. Operates on *all*
-    matching sink-inputs for a given app (CarPlay alone creates two),
-    not just the first/last match found.
+  used by `server.py` and `overlay_tab.py`: window capture (above), hide/
+  show, override-redirect, and `apply_audio_priority(binary)`: **CarPlay
+  always has audio priority**, its sink-inputs are unmuted on every app
+  switch and whatever else is active gets muted instead.
+- **`launcher/persist.py`**: all write-through to the real partition (see
+  "Runtime state that survives reboot" below).
 - **`launcher/overlay_tab.py`**: a small always-on-top "go home" tab,
-  bottom-center of the screen, a chevron on a dark pill. Built as a raw
-  X11 **override-redirect** window (via `python3-xlib`, not the kiosk
-  page, which has no way to request this window type from inside a
-  browser) so it floats above *any* fullscreen app including CarPlay, the
-  same trick `dunst` notifications already rely on. Tapping it hides
-  whatever's currently active and un-hides the launcher; nothing gets
-  killed. Technology-agnostic by design -- it only ever reads whichever
-  window id is in `/tmp/carplay_pi_launcher_winid`, so it needed zero
-  changes across the pygame-to-Chromium rewrite.
+  bottom-center of the screen. Built as a raw X11 **override-redirect**
+  window (via `python3-xlib`) so it floats above *any* fullscreen app
+  including CarPlay. Tapping it hides whatever's active and shows the
+  launcher; nothing gets killed. It only reads the window id in
+  `/tmp/carplay_pi_launcher_winid`.
 - **`launcher/launcher.py`** (+ `flappy.py`, `info.py`, `trip.py`,
-  `logs.py`): the original pygame implementation. No longer autostarted,
-  but left in place, undeployed from autostart, as a documented manual
-  fallback: SSH in, `pkill -9 -f chromium` and `pkill -9 -f server.py`,
-  then `python3 /home/ajxd2/launcher/launcher.py` by hand.
-- **`launcher/info.py`**: a live system-status app (hostname, uptime,
-  CPU temp, throttle status via `vcgencmd get_throttled`, load average,
-  memory/disk, both IPs, volume), refreshing every second. Answers "is
-  it actually undervolting" directly instead of inferring it from
-  temperature the way `pi-monitor.sh` does.
-- **`launcher/flappy.py`**: a throwaway Flappy Bird clone (pygame
-  canvas, tap-to-flap), mostly built to prove random little apps are
-  actually viable on this screen, not because it needed to exist.
-- **`launcher/trip.py`**: a two-tab (Convert / Trip Cost) unit and
-  fuel-cost calculator, state persisted to `launcher/trip_state.json` next
-  to the script so values survive an app restart.
-- **`launcher/logs.py`**: an on-screen tail of `/tmp/launcher_autolaunch.log`,
-  `journalctl`, and `dmesg`, since this device has no attached terminal --
-  reading logs otherwise means SSHing in from another machine.
-- **Devices app** (an in-page view like Settings, not a spawned process --
-  a synthetic grid tile in `app.js`, backed by `launcher/dongle.py`): lists
-  the dongle's paired phones and removes them, plus a live dongle
-  CPU/temp/mem strip. It talks to the dongle's web panel
-  (`http://192.168.43.1/cgi-bin/server.cgi`, the signed API documented in
-  the dongle section above) since the USB protocol can't edit the paired
-  list. Because that panel is only reachable over the dongle's WiFi AP,
-  opening the app makes `dongle.py` **borrow `wlan0`** to join
-  `AutoKit-8169` (a "Connecting..." skeleton shows meanwhile), and closing
-  it hands `wlan0` back to the home network via `wpa_cli reconfigure`. So
-  using this app briefly takes `wlan0` off whatever it was on -- harmless
-  for the kiosk (served from localhost) but it will interrupt an
-  SSH-over-`wlan0` session (use `eth0`). Removal is confirm-gated per row,
-  with a separate tap-twice "Forget all". `launcher/tools/ccpa_panel.py` is
-  the standalone CLI equivalent for off-device use.
-- Visual style shares the same dark, muted palette as `pi-monitor/dunstrc`'s
-  "Refined Card" style (same background/border/text colors, translated
-  from the pygame RGB tuples into CSS hex values) so the whole UI reads as
-  one system rather than bolted-together prototypes.
+  `logs.py`): the original pygame implementation. Not autostarted; kept as
+  a manual fallback (tiles now laid out in two rows so all five fit the
+  800px screen): SSH in, `pkill -9 -f chromium` and `pkill -9 -f
+  server.py`, then `python3 /home/ajxd2/launcher/launcher.py` by hand.
+  `flappy.py` is still what the new launcher's Flappy tile runs.
+- **Phones view** (backed by `launcher/dongle.py`): lists the dongle's
+  paired phones and forgets them, plus a live dongle CPU/temp/mem line. It
+  talks to the dongle's web panel (`http://192.168.43.1/cgi-bin/server.cgi`)
+  since the USB protocol can't edit the paired list. That panel is only
+  reachable over the dongle's Wi-Fi AP, so opening the view **borrows
+  `wlan0`** to join `AutoKit-8169`, and leaving it hands `wlan0` back via
+  `wpa_cli reconfigure`. A generation counter makes sure a join that's
+  still in flight when you leave hands `wlan0` back instead of parking it
+  on the dongle's AP, and server startup does the same if a previous run
+  died mid-view. Using this view interrupts an SSH-over-`wlan0` session
+  (use `eth0`). `launcher/tools/ccpa_panel.py` is the standalone CLI
+  equivalent (with working `--proxy socks5h://` support for an `ssh -D`
+  tunnel).
 
 ### The bug that ate most of a session: the old autostart loop
 
@@ -422,13 +411,10 @@ reason, the launcher's process management will fight it again.
 
 ### Known limitations
 
-- If `server.py` itself ever restarts (crash, redeploy) while an app is
-  already running, it loses track of that app in its in-memory state,
-  the tile will show as "not running" and tapping it again would spawn a
-  duplicate rather than re-attaching to the existing process. Restarting
-  the whole stack together (as `deploy.sh` does) sidesteps this; a more
-  robust version would discover already-running apps by querying X/process
-  state on startup instead of trusting in-memory tracking.
+- If `server.py` restarts (crash, redeploy), it can't re-attach to apps
+  the previous run started, so it kills them on startup and starts clean;
+  with auto-launch on, CarPlay comes straight back. Expect a few seconds of
+  CarPlay reconnecting whenever the server restarts.
 - Killing Chromium's process tree with `pkill -9 -f chromium` reliably
   drops the *current* SSH session for a couple of seconds (looks like a
   brief system-wide hiccup, maybe GPU/DRM cleanup on this Pi) even though
@@ -437,15 +423,98 @@ reason, the launcher's process management will fight it again.
   something similar by hand, don't chain other cleanup commands after it
   in the same remote shell; they won't run.
 
-- `launcher/deploy.sh [--autostart] [user@host]`: same
-  `/media/root-ro` write-through pattern as `pi-monitor/deploy.sh`. By
-  default only copies files and live-restarts the running stack --
-  **does not touch the openbox autostart file**, so a bad deploy can't
-  break the next boot. Pass `--autostart` (only after verifying the
-  live-restarted stack works on the real touchscreen) to rewrite autostart
-  and make it boot-persistent. Also installs the `chromium` apt package
-  persistently (idempotent, via `overlayroot-chroot`) if it isn't already
-  present.
+- `launcher/deploy.sh [--autostart] [user@host]`: same `/media/root-ro`
+  write-through pattern as `pi-monitor/deploy.sh`. Copies the launcher as
+  one `tar` stream with `--overwrite` (files are rewritten in place: tar's
+  default of replacing them with new inodes leaves the running overlay
+  serving the old cached copies until reboot), installs `~/.asoundrc`, runs
+  the idempotent react-carplay audio patch, then restarts the stack. If the
+  autostart respawn loop is running it only kills the stack and lets the
+  loop bring `server.py` back, never starting a second copy by hand. By
+  default it **doesn't touch the openbox autostart file**; pass
+  `--autostart` (after verifying on the real touchscreen) to install the
+  launcher block and point the startup `amixer` lines at the USB adapter by
+  name. Also installs the `chromium` apt package persistently if missing.
+
+## Audio
+
+Everything CarPlay plays (music, calls, Siri, navigation) arrives from the
+phone over Wi-Fi to the dongle, then over USB to react-carplay, which plays
+it through PulseAudio to the Unitek USB adapter (`card "Device"`). The mic
+goes the other way: USB adapter -> PulseAudio -> react-carplay
+(`getUserMedia`, 16 kHz mono) -> dongle -> phone, only while the phone asks
+for it (`starting mic` / `stopping mic` in `/tmp/carplay.log`).
+
+Fixes applied, and why:
+
+- **Crackling: react-carplay's audio player had no jitter buffer.** Its
+  AudioWorklet started playing the moment 128 frames (~3 ms) existed and
+  went silent for a render quantum whenever the next packet was slightly
+  late, which wireless CarPlay makes constant (20-35 `UNDERFLOW`s a minute
+  in the log). `launcher/tools/patch_carplay_audio.py` extracts the
+  AppImage once to `~/react-carplay` and swaps in
+  `tools/carplay_audio_worklet.js`: it waits for 120 ms of audio before
+  (re)starting, and if the buffer's *minimum* over 3 s stays 60 ms above
+  that (slow clock drift, not a burst), drops the excess once so latency
+  can't creep up on a long drive. Same-size in-place edit of `app.asar`,
+  SHA-256-checked, idempotent, run by `deploy.sh`. `server.py` runs
+  `~/react-carplay/AppRun` (with `APPDIR` set; `AppRun` can't find itself
+  without it) and falls back to the stock AppImage if it's missing. Result:
+  zero underflows in the same listening test. The original AppImage is
+  untouched.
+- **Mic dead on phone calls: dongle `CallQuality` was HD.** Set to Norm
+  (0). See the dongle panel section.
+- **react-carplay `mediaDelay` 300 -> 1000** (in
+  `~/.config/react-carplay/config.json`, persisted): the dongle-side jitter
+  buffer, which react-carplay pushes to the dongle on every connect. 300
+  was the minimum; 1000 is the panel's default.
+- **PulseAudio buffer**: `/etc/pulse/daemon.conf` had
+  `default-fragment-size-msec = 15` with `tsched=0` in `default.pa` (about
+  60 ms of buffer). Now 25 ms x `default-fragments = 8` (~200 ms), still
+  `tsched=0`. Persisted to `/media/root-ro/etc/pulse/daemon.conf`.
+- **`~/.asoundrc`** (repo: `launcher/system/asoundrc`) routes plain-ALSA
+  programs through PulseAudio. The old one pinned `defaults.pcm.card 1`,
+  but card numbers move between boots (1 is now HDMI, no capture) and
+  those defaults only accept an index. Autostart's `amixer` lines use
+  `-c Device` (the adapter's name) for the same reason.
+- CarPlay's `height` in its config stays at **640** (react-carplay's
+  default). 480 looked right until the window was hidden and shown again,
+  after which CarPlay's page grew scrollbars.
+
+## Runtime state that survives reboot
+
+The launcher persists state through `launcher/persist.py`
+(`write_through()`: remount `/media/root-ro` rw, write a temp file, sync,
+rename, best-effort remount ro):
+
+- `launcher/config.json` (startup app) and `launcher/trip_state.json`
+  (Trip Calc values): written on change.
+- `launcher/volume.json`: PulseAudio's own restore database lives on the
+  tmpfs overlay and autostart forces 100% at boot, so `server.py` restores
+  the saved level on startup and saves it once a change has held for ~4 s,
+  whatever changed it.
+- `~/.config/react-carplay/config.json`: react-carplay writes this itself
+  when you change its settings; a watcher thread notices (every 3 s, only
+  complete JSON) and persists it.
+
+## Clock (no RTC)
+
+The Pi 4 has no real-time clock and no `fake-hwclock` here, so every boot
+starts at whatever time the image last held (currently Mar 31) until
+`systemd-timesyncd` syncs over the network, which in the car may never
+happen. The launcher shows `--:--` / "Clock not set" until
+`timedatectl` reports `NTPSynchronized=yes`; CarPlay's own status bar
+always shows the phone's time. Real fix: a DS3231 I2C RTC module (GPIO pins
+1/3/5/9) plus `dtoverlay=i2c-rtc,ds3231` in `/boot/firmware/config.txt`,
+seeded once with `sudo hwclock -w` while online.
+
+## Security notes
+
+- react-carplay listens on **`0.0.0.0:4000`** (socket.io) with no auth,
+  reachable from any network the Pi joins. There's no firewall. A
+  persistent nftables ruleset (allow `lo`, established, 22; drop the rest)
+  would close it; test it carefully, since a mistake can lock out SSH.
+- SSH is pubkey-only; the launcher API binds to `127.0.0.1`.
 
 ## pi-monitor: temp/network notifications
 
@@ -525,4 +594,8 @@ CarPlay app runs fullscreen with no window chrome:
 | Install a package persistently | `sudo overlayroot-chroot apt-get install -y <pkg>` |
 | Deploy pi-monitor changes | `cd pi-monitor && ./deploy.sh` |
 | Deploy launcher changes | `cd launcher && ./deploy.sh` |
+| Launcher / CarPlay logs | `/tmp/server_startup.log`, `/tmp/carplay.log` (or the Logs view) |
+| Dongle settings | `python3 launcher/tools/ccpa_panel.py infos` (on the AutoKit Wi-Fi) |
+| Re-apply the CarPlay audio patch | `sudo python3 ~/launcher/tools/patch_carplay_audio.py` |
+| Frontend dev server | `cd launcher && python3 server.py --dev` |
 | Fully reset the overlay / pick up new packages | `sudo reboot` |
