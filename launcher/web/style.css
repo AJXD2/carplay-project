@@ -500,6 +500,48 @@ svg { display: block; }
 }
 #dim-overlay.active { opacity: 0.12; }
 
+/* -- motion ---------------------------------------------------------------
+   One vocabulary: things you open slide in from the right, going back
+   slides home in from the left, and an app that's starting pulses its lamp
+   until its window takes over (the compositor animates that handoff). */
+:root {
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-view: 220ms;
+}
+.enter-forward { animation: enter-forward var(--t-view) var(--ease-out) both; }
+.enter-back { animation: enter-back var(--t-view) var(--ease-out) both; }
+@keyframes enter-forward {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes enter-back {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: none; }
+}
+.strip-home.enter-back, .strip-view.enter-forward { animation-duration: 180ms; }
+
+.tile.launching { background: var(--pressed); }
+.tile.launching .lamp {
+  background: var(--amber);
+  animation: lamp-pulse 0.9s ease-in-out infinite;
+}
+@keyframes lamp-pulse {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 6px 0 var(--amber-glow); }
+  50% { opacity: 1; box-shadow: 0 0 18px 4px var(--amber-glow); }
+}
+.tile.running .lamp { transition: box-shadow 0.4s ease, opacity 0.4s ease; }
+
+.toast:not([hidden]) { animation: toast-in 180ms var(--ease-out) both; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.vol-fill { transition: width 0.12s linear; }
+.vol-track:active .vol-fill { transition: none; }
+.switch::after, .choice { transition: transform 0.18s var(--ease-out), background-color 0.15s ease, box-shadow 0.15s ease; }
+.seg { transition: background-color 0.15s ease, color 0.15s ease; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

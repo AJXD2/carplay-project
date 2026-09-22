@@ -54,6 +54,10 @@ ssh "$HOST" "sudo python3 $REMOTE_LAUNCHER_DIR/tools/patch_carplay_audio.py"
 echo "==> Installing ~/.asoundrc (USB audio adapter by name)"
 ssh "$HOST" "sudo tee $REMOTE_HOME/.asoundrc >/dev/null && sudo chown ajxd2:ajxd2 $REMOTE_HOME/.asoundrc" < "$SCRIPT_DIR/system/asoundrc"
 
+echo "==> Installing the compositor config (app-switch animations)"
+ssh "$HOST" "sudo mkdir -p $REMOTE_HOME/.config/picom && sudo tee $REMOTE_HOME/.config/picom/picom.conf >/dev/null && sudo chown -R ajxd2:ajxd2 $REMOTE_HOME/.config/picom" < "$SCRIPT_DIR/system/picom.conf"
+ssh "$HOST" "cp $REMOTE_HOME/.config/picom/picom.conf ~/.config/picom/picom.conf 2>/dev/null; pkill -x picom; sleep 0.5; DISPLAY=:0 picom --config ~/.config/picom/picom.conf -b" || true
+
 echo "==> Seeding config.json (only if it doesn't already exist -- it's device-owned state, saved live from the settings screen, not repo-managed)"
 ssh "$HOST" "sudo test -f $REMOTE_LAUNCHER_DIR/config.json || echo '{\"default_app\": null, \"auto_launch\": false}' | sudo tee $REMOTE_LAUNCHER_DIR/config.json >/dev/null"
 

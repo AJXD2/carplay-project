@@ -290,6 +290,13 @@ laptop can `ssh -D 1080 -N ajxd2@<pi-eth0-ip>` and point the tool at
   `openbox` (window manager) → autostart script launches the launcher +
   overlay tab, `pulseaudio`, `picom` (compositor), `unclutter`, `dunst` +
   `pi-monitor.sh` (see below).
+- `picom` config lives in the repo at `launcher/system/picom.conf` (deployed
+  by `launcher/deploy.sh`). App switching is an X unmap + map, which picom
+  animates: the incoming app grows in from 96% as it fades up, the
+  outgoing one fades out, and dunst notifications slide down from the top.
+  It must stay on the `xrender` backend: the Pi's GPU fails picom's GL
+  shader check (`GLSL 3.30 is not supported`). If picom dies, windows still
+  draw, just without effects.
 - No Docker, no other custom services beyond stock Bluetooth/PulseAudio.
 
 ## launcher: CarPlay as one app among others

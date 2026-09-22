@@ -206,10 +206,20 @@ const VIEWS = {
 };
 let currentView = null;
 
+// Replays an entrance animation on an element (removing and re-adding the
+// class alone wouldn't restart it).
+function animateIn(el, cls) {
+  el.classList.remove("enter-forward", "enter-back");
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
 function showView(name) {
   const v = VIEWS[name];
   if (!v) return;
   currentView = name;
+  animateIn($(v.el), "enter-forward");
+  animateIn(document.querySelector(".strip-view"), "enter-forward");
   $("home-view").classList.add("hidden");
   $("volume-bar").classList.add("hidden");
   document.querySelector(".strip-home").classList.add("hidden");
@@ -227,6 +237,9 @@ function showHome() {
     $(VIEWS[currentView].el).classList.add("hidden");
   }
   currentView = null;
+  animateIn($("home-view"), "enter-back");
+  animateIn($("volume-bar"), "enter-back");
+  animateIn(document.querySelector(".strip-home"), "enter-back");
   $("home-view").classList.remove("hidden");
   $("volume-bar").classList.remove("hidden");
   document.querySelector(".strip-home").classList.remove("hidden");
@@ -435,6 +448,8 @@ document.querySelectorAll("#trip-view .seg").forEach((seg) => {
     document.querySelectorAll("#trip-view .seg").forEach((s) => s.classList.toggle("active", s === seg));
     $("trip-cost").classList.toggle("hidden", seg.dataset.tab !== "cost");
     $("trip-convert").classList.toggle("hidden", seg.dataset.tab !== "convert");
+    animateIn($(seg.dataset.tab === "cost" ? "trip-cost" : "trip-convert"),
+      seg.dataset.tab === "cost" ? "enter-back" : "enter-forward");
   });
 });
 
