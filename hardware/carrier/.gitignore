@@ -1,0 +1,6 @@
+.venv/
+tools/kicad-library-utils/
+datasheets/*.txt
+*-backups/
+fp-info-cache
+*.kicad_prl
