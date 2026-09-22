@@ -152,11 +152,13 @@ SYMBOLS.append(symbol(
     "https://www.ti.com/lit/ds/symlink/lm61460-q1.pdf",
     "Automotive 3-V to 36-V 6-A synchronous buck, FPWM + spread spectrum, VQFN-HR-14",
     "buck regulator automotive step-down",
+    # BIAS on top beside VIN so it ties straight to a +5V symbol; SW/CBOOT/RBOOT
+    # spaced one gap apart so the 100 nF boot cap and boot resistor wire neatly
     left=[P("EN/SYNC", "7", "input"), P("RT", "6", "passive"), None,
-          P("BIAS", "1", "power_in"), P("VCC", "2", "power_out")],
-    right=[P("CBOOT", "14", "passive"), P("RBOOT", "13", "passive"), P("SW", "10", "output"),
-           None, P("FB", "4", "input"), P("PGOOD", "5", "open_collector")],
-    top=[P("VIN", "[8,12]", "power_in")],
+          P("VCC", "2", "power_out")],
+    right=[P("SW", "10", "output"), None, P("CBOOT", "14", "passive"), None,
+           P("RBOOT", "13", "passive"), None, P("FB", "4", "input"), P("PGOOD", "5", "open_collector")],
+    top=[P("VIN", "[8,12]", "power_in"), P("BIAS", "1", "power_in")],
     bottom=[P("AGND", "3", "power_in"), P("PGND", "[9,11]", "power_in")],
     width=17.78))
 
@@ -203,6 +205,23 @@ SYMBOLS.append(symbol(
     right=[P("CLK_OUT", "3", "output"), P("AUX_OUT", "4", "output")],
     top=[P("VD", "1", "power_in")],
     bottom=[P("GND", "2", "power_in")],
+    width=27.94))
+
+# --- 2007 4Runner harness (Metra adapter wires crimped into a Micro-Fit 2x10).
+# Pin n sits directly above pin n+10, so each wire pair shares a column.
+pa = "passive"
+SYMBOLS.append(symbol(
+    "Harness_4Runner", "J", "Harness_4Runner",
+    "Connector_Molex:Molex_Micro-Fit_3.0_43045-2000_2x10_P3.00mm_Horizontal",
+    "https://www.molex.com/pdm_docs/sd/430450201_sd.pdf",
+    "Head-unit harness for the 2007 Toyota 4Runner (non-JBL) via Metra adapter, Molex Micro-Fit 3.0 2x10",
+    "harness connector car radio micro-fit",
+    left=[P("+12V_BATT", "[1,11]", pa), None, P("ACC", "7", pa), P("ILLUM", "17", pa), None,
+          P("SWC1", "8", pa), P("SWC2", "18", pa), P("SWC_GND", "9", pa)],
+    right=[P("SPK_FL+", "3", pa), P("SPK_FL-", "13", pa), None, P("SPK_FR+", "4", pa), P("SPK_FR-", "14", pa), None,
+           P("SPK_RL+", "5", pa), P("SPK_RL-", "15", pa), None, P("SPK_RR+", "6", pa), P("SPK_RR-", "16", pa)],
+    top=[],
+    bottom=[P("GND", "[2,12,19]", pa), P("NC", "[10,20]", "no_connect")],
     width=27.94))
 
 # --- Raspberry Pi 40-pin GPIO header as seen by a HAT (BCM names + alternates)

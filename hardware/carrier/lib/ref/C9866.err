@@ -1,0 +1,7 @@
+[INFO] Integrated 2 sub-symbols into main symbol
+[INFO] Created Kicad symbol for ID : C9866
+       Symbol name : DS3231SN#
+       Library path : lib/ref/easyeda.kicad_sym
+[INFO] Created Kicad footprint for ID: C9866
+       Footprint name: SOIC-16_L10.3-W7.5-P1.27-LS10.3-BL
+       Footprint path: lib/ref/easyeda.pretty/SOIC-16_L10.3-W7.5-P1.27-LS10.3-BL.kicad_mod
