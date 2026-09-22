@@ -6,68 +6,152 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <button id="dim-btn" class="circle-btn" aria-label="Dim for night driving">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
-    </button>
-    <div id="datetime" class="datetime"></div>
+  <!-- Icon sprite: one 24px grid, one stroke weight, currentColor, so a
+       tile's icon can light up amber when its app is running. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-carplay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.2"/>
+        <path d="M12 9.8V3.5M10.1 13.1 4.8 16.4M13.9 13.1l5.3 3.3"/>
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/>
+        <path d="M4.5 13.5h1.3M18.2 13.5h1.3M7 8.5l.9.9M16.1 9.4l.9-.9M12 6v1.3"/>
+      </symbol>
+      <symbol id="i-trip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 20V6a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v14M4 20h11M5 11h9"/>
+        <path d="M14 8h2.5a1.5 1.5 0 0 1 1.5 1.5V16a1.5 1.5 0 0 0 3 0V9l-2.5-2.5"/>
+      </symbol>
+      <symbol id="i-logs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M7 9l2.5 2.5L7 14M12 14h5"/>
+      </symbol>
+      <symbol id="i-devices" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>
+      </symbol>
+      <symbol id="i-flappy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 13.5c0-4 3.2-6.5 7-6.5 3.5 0 6 2 6.8 4.5L21 10l-2.6 3.4c-.6 3-3.5 4.6-7.4 4.6-4 0-7-1.7-7-4.5Z"/>
+        <path d="M5.5 13.5c1.5-1.8 4-2 5.5-.5"/><circle cx="14.5" cy="10.5" r=".9" fill="currentColor"/>
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/>
+      </symbol>
+      <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 5 8 12l7 7"/>
+      </symbol>
+      <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M6 13l6 6 6-6"/>
+      </symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></symbol>
+      <symbol id="i-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="strip">
+    <div class="strip-home">
+      <div class="clock"><span id="clock-time">--:--</span><span id="clock-ampm" class="ampm"></span></div>
+      <div id="clock-date" class="date"></div>
+    </div>
+    <div class="strip-view hidden">
+      <button id="back-btn" class="icon-btn" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h1 id="view-title"></h1>
+    </div>
+    <div class="strip-right">
+      <div id="dongle-chip" class="chip" hidden></div>
+      <span id="strip-clock" class="strip-clock hidden"></span>
+      <button id="dim-btn" class="icon-btn" aria-label="Night dim" aria-pressed="false"><svg><use href="#i-moon"/></svg></button>
+    </div>
   </header>
 
-  <div class="body-row">
-    <aside class="sidebar">
-      <button id="vol-up" class="circle-btn">+</button>
-      <div id="vol-track" class="vol-track"><div id="vol-fill" class="vol-fill"></div></div>
-      <button id="vol-down" class="circle-btn">-</button>
-      <div class="sidebar-spacer"></div>
-      <button id="settings-btn" class="circle-btn" aria-label="Settings">
-        <img src="/assets/icons/settings.svg" alt="">
-      </button>
-    </aside>
+  <main id="home-view" class="view home">
+    <button class="hero tile" data-app="CarPlay">
+      <span class="lamp"></span>
+      <svg class="hero-icon"><use href="#i-carplay"/></svg>
+      <span class="hero-name">CarPlay</span>
+      <span id="hero-state" class="state">Tap to start</span>
+    </button>
+    <div class="grid">
+      <button class="tile" data-view="info"><span class="lamp"></span><svg><use href="#i-info"/></svg><span class="tile-name">Info</span></button>
+      <button class="tile" data-view="trip"><span class="lamp"></span><svg><use href="#i-trip"/></svg><span class="tile-name">Trip Calc</span></button>
+      <button class="tile" data-view="logs"><span class="lamp"></span><svg><use href="#i-logs"/></svg><span class="tile-name">Logs</span></button>
+      <button class="tile" data-view="devices"><span class="lamp"></span><svg><use href="#i-devices"/></svg><span class="tile-name">Phones</span></button>
+      <button class="tile" data-app="Flappy Bird"><span class="lamp"></span><svg><use href="#i-flappy"/></svg><span class="tile-name">Flappy Bird</span><span class="state"></span></button>
+      <button class="tile" data-view="settings"><span class="lamp"></span><svg><use href="#i-settings"/></svg><span class="tile-name">Settings</span></button>
+    </div>
+  </main>
 
-    <main id="grid-view" class="grid-wrap">
-      <div id="panels" class="panels"></div>
-      <nav id="pager" class="pager hidden">
-        <button id="pg-prev" class="pg-btn" aria-label="Previous screen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
-        </button>
-        <div id="pg-dots" class="dots"></div>
-        <button id="pg-next" class="pg-btn" aria-label="Next screen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
-        </button>
-      </nav>
-    </main>
+  <footer id="volume-bar" class="volume">
+    <button id="vol-down" class="icon-btn round" aria-label="Volume down"><svg><use href="#i-minus"/></svg></button>
+    <svg class="vol-icon"><use href="#i-speaker"/></svg>
+    <div id="vol-track" class="vol-track"><div id="vol-fill" class="vol-fill"></div></div>
+    <span id="vol-value" class="vol-value">--</span>
+    <button id="vol-up" class="icon-btn round" aria-label="Volume up"><svg><use href="#i-plus"/></svg></button>
+  </footer>
 
-    <section id="settings-view" class="settings hidden">
-      <header class="settings-header">
-        <button id="back-btn" class="circle-btn" aria-label="Back">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
-        </button>
-        <h1>Settings</h1>
-      </header>
-      <div class="settings-body">
-        <div class="settings-row toggle-row">
-          <span>Auto Launch</span>
-          <button id="auto-launch-toggle" class="toggle" role="switch" aria-checked="false"></button>
-        </div>
-        <div id="app-picker" class="picker"></div>
-        <button id="save-btn" class="save-btn">Save</button>
-        <div id="toast" class="toast hidden"></div>
+  <section id="info-view" class="view panel-view hidden">
+    <div class="gauges">
+      <div class="gauge" id="g-temp"><span class="g-label">CPU temperature</span><span class="g-value"><span class="num">--</span><span class="unit">°C</span></span><span class="g-sub"></span></div>
+      <div class="gauge" id="g-power"><span class="g-label">Power supply</span><span class="g-value word">--</span><span class="g-sub"></span></div>
+      <div class="gauge" id="g-dongle"><span class="g-label">CarPlay dongle</span><span class="g-value word">--</span><span class="g-sub"></span></div>
+    </div>
+    <div class="mic-row">
+      <span class="row-label">Microphone</span>
+      <div class="meter"><div id="mic-fill" class="meter-fill"></div><div id="mic-peak" class="meter-peak"></div></div>
+      <span id="mic-db" class="row-value">--</span>
+    </div>
+    <dl id="info-list" class="facts"></dl>
+  </section>
+
+  <section id="trip-view" class="view panel-view hidden">
+    <div class="segmented" role="tablist">
+      <button class="seg active" data-tab="cost" role="tab">Trip cost</button>
+      <button class="seg" data-tab="convert" role="tab">Convert</button>
+    </div>
+    <div id="trip-cost" class="trip-tab">
+      <div class="steppers" id="cost-steppers"></div>
+      <div class="result">
+        <span id="cost-total" class="result-num">$0.00</span>
+        <span id="cost-gallons" class="result-sub"></span>
       </div>
-    </section>
+    </div>
+    <div id="trip-convert" class="trip-tab hidden">
+      <div class="steppers" id="convert-steppers"></div>
+    </div>
+  </section>
 
-    <section id="devices-view" class="devices hidden">
-      <header class="settings-header">
-        <button id="devices-back-btn" class="circle-btn" aria-label="Back">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
-        </button>
-        <h1>Devices</h1>
-        <div id="dev-monitor" class="dev-monitor"></div>
-      </header>
-      <div class="devices-body">
-        <div id="devices-content"></div>
+  <section id="logs-view" class="view panel-view logs hidden">
+    <div class="segmented" role="tablist">
+      <button class="seg active" data-source="launcher" role="tab">Launcher</button>
+      <button class="seg" data-source="carplay" role="tab">CarPlay</button>
+      <button class="seg" data-source="system" role="tab">System</button>
+      <button class="seg" data-source="kernel" role="tab">Kernel</button>
+    </div>
+    <pre id="log-body" class="log-body"></pre>
+    <button id="log-bottom" class="icon-btn round float hidden" aria-label="Jump to newest"><svg><use href="#i-down"/></svg></button>
+  </section>
+
+  <section id="settings-view" class="view panel-view hidden">
+    <div class="setting">
+      <div>
+        <div class="setting-name">Open an app on startup</div>
+        <div class="setting-help">Skips the home screen when the car turns on.</div>
       </div>
-    </section>
-  </div>
+      <button id="auto-launch-toggle" class="switch" role="switch" aria-checked="false" aria-label="Open an app on startup"></button>
+    </div>
+    <div class="setting-name spaced">App to open</div>
+    <div id="app-picker" class="choices"></div>
+    <div id="toast" class="toast" hidden></div>
+  </section>
+
+  <section id="devices-view" class="view panel-view hidden">
+    <div id="dev-monitor" class="dev-monitor"></div>
+    <div id="devices-content" class="devices-body"></div>
+  </section>
 
   <div id="dim-overlay"></div>
 
