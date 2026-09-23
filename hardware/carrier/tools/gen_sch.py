@@ -494,6 +494,13 @@ def amplifier(x, y):
     for t, (val, fp) in zip(bank, [("100nF", FP_C), ("10uF", FP_C1206)] * 3 + [("1uF", FP_C0805)]):
         shunt(C(val, fp=fp), (t, yb))
         S.junction((t, yb))
+    # PVDD bulk (fig 10-2's 470 uF), also the buck's CIN-BLK
+    bx, by = x + 12.7, uy + 30.48
+    S.power((bx, by), "+12V_PROT")
+    S.wire((bx, by), (bx + 10.16, by), color=red)
+    cb = shunt(C("470uF", fp="Capacitor_SMD:CP_Elec_10x12.5", polarized=True), (bx + 10.16, by))
+    cb.place_prop("Value", 2.54, 1.27, "left")
+    S.text(bx - 5.08, by + 17.78, "10 x 12.5 mm, 50 V, 105 C", size=1.27)
     vdd = u.pin("19")
     S.power(vdd, "+3V3")
     S.wire(vdd, (vdd[0] + 10.16, vdd[1]), color=COLORS["power3"])
