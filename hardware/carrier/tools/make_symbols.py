@@ -120,25 +120,29 @@ SYMBOLS.append(symbol(
     "https://www.ti.com/lit/ds/symlink/tas6424e-q1.pdf",
     "45-W 2.1-MHz digital-input 4-channel automotive class-D amplifier, HSSOP-56 (DKQ, thermal pad on top: needs a GND heatsink)",
     "class-D amplifier audio automotive I2S TDM",
+    # SDIN2 / I2C_ADDRx tie to GND: two gaps after each group leave room for
+    # the ground symbol. Analog bypass pins sit two gaps apart so their caps can
+    # lie horizontally between pin and return bus. AREF / AVSS are *local*
+    # bypass returns (datasheet fig 10-2), NOT ground.
     left=[P("MCLK", "12", "input"), P("SCLK", "13", "input"), P("FSYNC", "14", "input"),
-          P("SDIN1", "15", "input"), P("SDIN2", "16", "input"), None,
+          P("SDIN1", "15", "input"), P("SDIN2", "16", "input"), None, None,
           P("SCL", "20", "input"), P("SDA", "21", "bidirectional"),
-          P("I2C_ADDR0", "22", "input"), P("I2C_ADDR1", "23", "input"), None,
+          P("I2C_ADDR0", "22", "input"), P("I2C_ADDR1", "23", "input"), None, None,
           P("~{STANDBY}", "24", "input"), P("~{MUTE}", "25", "input"), None,
-          P("VREG", "5", "power_out"), P("VCOM", "6", "power_out"), P("AREF", "4", "passive"), None,
-          # AREF / AVSS are *local* bypass returns (datasheet fig 10-2), NOT ground:
-          # kept beside VREG/VCOM/AVDD on purpose so their caps wire straight across.
-          P("AVDD", "8", "power_out"), P("AVSS", "7", "passive"), None,
-          P("GVDD", "[9,10]", "power_out")],
+          P("VREG", "5", "power_out"), None, None, P("VCOM", "6", "power_out"), None, None,
+          P("AREF", "4", "passive"), None, None, P("AVDD", "8", "power_out"), None, None,
+          P("AVSS", "7", "passive"), None, P("GVDD", "[9,10]", "power_out")],
+    # each channel: BST_P, gap, OUT_P, OUT_M, gap, BST_M so the 1 uF boot caps
+    # lie on the BST rows and drop one row to their OUT pin
     right=[P("~{FAULT}", "26", "open_collector"), P("~{WARN}", "27", "open_collector"), None,
-           P("BST_1P", "35", "passive"), P("OUT_1P", "34", "output"),
-           P("OUT_1M", "32", "output"), P("BST_1M", "31", "passive"), None,
-           P("BST_2P", "41", "passive"), P("OUT_2P", "40", "output"),
-           P("OUT_2M", "38", "output"), P("BST_2M", "37", "passive"), None,
-           P("BST_3P", "48", "passive"), P("OUT_3P", "47", "output"),
-           P("OUT_3M", "45", "output"), P("BST_3M", "44", "passive"), None,
-           P("BST_4P", "54", "passive"), P("OUT_4P", "53", "output"),
-           P("OUT_4M", "51", "output"), P("BST_4M", "50", "passive")],
+           P("BST_1P", "35", "passive"), None, P("OUT_1P", "34", "output"),
+           P("OUT_1M", "32", "output"), None, P("BST_1M", "31", "passive"), None, None,
+           P("BST_2P", "41", "passive"), None, P("OUT_2P", "40", "output"),
+           P("OUT_2M", "38", "output"), None, P("BST_2M", "37", "passive"), None, None,
+           P("BST_3P", "48", "passive"), None, P("OUT_3P", "47", "output"),
+           P("OUT_3M", "45", "output"), None, P("BST_3M", "44", "passive"), None, None,
+           P("BST_4P", "54", "passive"), None, P("OUT_4P", "53", "output"),
+           P("OUT_4M", "51", "output"), None, P("BST_4M", "50", "passive")],
     top=[P("PVDD", "[2,29,30]", "power_in"), P("PVDD", "[42,43]", "power_in"),
          P("PVDD", "[55,56]", "power_in"), P("VBAT", "3", "power_in"), P("VDD", "19", "power_in")],
     bottom=[P("GND", "[1,11,17]", "power_in"), P("GND", "[18,28,33]", "power_in"),

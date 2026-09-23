@@ -179,6 +179,11 @@ class Part:
 
     def sexpr(self, project, root_uuid):
         def prop(name, value, dx, dy, hide=False, justify=None, rot=0):
+            # KiCad draws a field whose net angle (symbol + field) is 180 as
+            # upright text with left/right justification swapped; undo that
+            # so "left" always means text runs rightward from the anchor.
+            if justify and (self.rot + rot) % 360 == 180:
+                justify = {"left": "right", "right": "left"}.get(justify, justify)
             j = f" (justify {justify})" if justify else ""
             h = " (hide yes)" if hide else ""
             return (f'(property "{name}" "{value}" (at {snap(self.x + dx, 0.01)} {snap(self.y + dy, 0.01)} {rot}){h} '
