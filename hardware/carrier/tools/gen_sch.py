@@ -76,7 +76,7 @@ def harness(x, y):
     j.place_prop("Reference", -13.97, -22.86, "left")
     j.place_prop("Value", -13.97, -20.32, "left")
     for pin, net, col in [("+12V_BATT", "+12V_BATT", "power12"), ("ACC", "ACC_IN", "ctl"),
-                          ("ILLUM", "ILLUM_IN", "ctl"), ("SWC1", "SWC1_IN", "swc"),
+                          ("ILLUM", "ILLUM_IN", "ctl"), ("REV", "REV_IN", "ctl"), ("SWC1", "SWC1_IN", "swc"),
                           ("SWC2", "SWC2_IN", "swc"), ("SWC_GND", "SWC_GND", "swc")]:
         lbl(j, pin, net, col)
     for ch in ("FL", "FR", "RL", "RR"):
@@ -364,7 +364,7 @@ def power_hold(x, y):
     """SYS_EN (LM74800 EN/UVLO) is an OR of the key (ACC) and the Pi's own
     hold line, so the Pi decides when the board turns off."""
     ctl = COLORS["ctl"]
-    S.box(x, y, x + 152.4, y + 83.82, "POWER HOLD + KEY / LIGHTS SENSE", ctl)
+    S.box(x, y, x + 152.4, y + 109.22, "POWER HOLD + KEY / LIGHTS / REVERSE SENSE", ctl)
     y1, y2 = y + 15.24, y + 25.4
     # ACC -> D -> 47k -> SYS_EN
     S.label((x + 10.16, y1), "ACC_IN", (-1, 0), color=ctl, stub=0)
@@ -406,14 +406,15 @@ def power_hold(x, y):
 
     _sense(x + 10.16, y + 55.88, "ACC_IN", "~{ACC_ON}")
     _sense(x + 83.82, y + 55.88, "ILLUM_IN", "~{LIGHTS_ON}")
+    _sense(x + 83.82, y + 81.28, "REV_IN", "~{REVERSE}")
 
-    S.text(x + 2.54, y + 71.12, "PI_HOLD (GPIO26): config.txt gpio=26=op,dh raises it ~1 s after power-up; "
+    S.text(x + 2.54, y + 100.33, "PI_HOLD (GPIO26): config.txt gpio=26=op,dh raises it ~1 s after power-up; "
            "dtoverlay=gpio-poweroff drops it once the Pi halts.", size=1.27)
-    S.text(x + 2.54, y + 73.66, "Key off: the Pi syncs and halts, SYS_EN decays under 1.13 V ~2 s later and the "
+    S.text(x + 2.54, y + 102.87, "Key off: the Pi syncs and halts, SYS_EN decays under 1.13 V ~2 s later and the "
            "LM74800 cuts everything (3 uA standby).", size=1.27)
-    S.text(x + 2.54, y + 76.2, "ACC alone holds SYS_EN ~5 s (100k x 47 uF) so a crank before the Pi boots doesn't "
+    S.text(x + 2.54, y + 105.41, "ACC alone holds SYS_EN ~5 s (100k x 47 uF) so a crank before the Pi boots doesn't "
            "drop power. BZT52C15 limits load dump on the cap.", size=1.27)
-    S.text(x + 2.54, y + 78.74, "Hung Pi: the BCM watchdog resets it, GPIO26 floats low (100k bleed), and the board "
+    S.text(x + 2.54, y + 107.95, "Hung Pi: the BCM watchdog resets it, GPIO26 floats low (100k bleed), and the board "
            "powers off if the key is off.", size=1.27)
 
 
@@ -429,9 +430,9 @@ PI_GPIO = {
     "11": ("~{ACC_ON}", "ctl"), "12": ("I2S_BCLK", "i2s"), "35": ("I2S_FSYNC", "i2s"),
     "40": ("I2S_DOUT", "i2s"), "15": ("~{AMP_STBY}", "ctl"), "16": ("~{AMP_MUTE}", "ctl"),
     "18": ("~{AMP_FAULT}", "ctl"), "22": ("~{AMP_WARN}", "ctl"), "37": ("PI_HOLD", "ctl"),
-    "13": ("~{LIGHTS_ON}", "ctl"),
+    "13": ("~{LIGHTS_ON}", "ctl"), "38": ("~{REVERSE}", "ctl"),
 }
-PI_UNUSED = ["26", "24", "21", "19", "23", "38"]   # SPI0 (GPIO7-11), PCM DIN (GPIO20)
+PI_UNUSED = ["26", "24", "21", "19", "23"]   # SPI0 (GPIO7-11)
 
 
 def pi_header(x, y):
@@ -996,7 +997,7 @@ def main():
     buck(270.51, 132.08)
     # row 3
     misc(15.24, 236.22)
-    amplifier(113.03, 226.06)
+    amplifier(113.03, 251.46)
     output_filter(288.29, 226.06)
     fans(420.37, 226.06)
     clock_option(288.29, 320.04)

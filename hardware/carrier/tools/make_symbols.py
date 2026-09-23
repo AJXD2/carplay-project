@@ -218,14 +218,14 @@ SYMBOLS.append(symbol(
     "Harness_4Runner", "J", "Harness_4Runner",
     "Connector_Molex:Molex_Micro-Fit_3.0_43045-2000_2x10_P3.00mm_Horizontal",
     "https://www.molex.com/pdm_docs/sd/430450201_sd.pdf",
-    "Head-unit harness for the 2007 Toyota 4Runner (non-JBL) via Metra adapter, Molex Micro-Fit 3.0 2x10",
+    "Head-unit harness for the 2007 Toyota 4Runner (non-JBL), Molex Micro-Fit 3.0 2x10. REV = reverse-light 12 V",
     "harness connector car radio micro-fit",
-    left=[P("+12V_BATT", "[1,11]", pa), None, P("ACC", "7", pa), P("ILLUM", "17", pa), None,
+    left=[P("+12V_BATT", "[1,11]", pa), None, P("ACC", "7", pa), P("ILLUM", "17", pa), P("REV", "10", pa), None,
           P("SWC1", "8", pa), P("SWC2", "18", pa), P("SWC_GND", "9", pa)],
     right=[P("SPK_FL+", "3", pa), P("SPK_FL-", "13", pa), None, P("SPK_FR+", "4", pa), P("SPK_FR-", "14", pa), None,
            P("SPK_RL+", "5", pa), P("SPK_RL-", "15", pa), None, P("SPK_RR+", "6", pa), P("SPK_RR-", "16", pa)],
     top=[],
-    bottom=[P("GND", "[2,12,19]", pa), P("NC", "[10,20]", "no_connect")],
+    bottom=[P("GND", "[2,12,19]", pa), P("NC", "20", "no_connect")],
     width=27.94))
 
 # --- Raspberry Pi 40-pin GPIO header as seen by a HAT (BCM names + alternates)
