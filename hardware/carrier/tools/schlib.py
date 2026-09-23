@@ -116,12 +116,13 @@ def parse_pins(block):
 
 class Part:
     def __init__(self, sch, lib_id, ref, value, at, rot=0, mirror=None, footprint=None,
-                 fields=None, dnp=False, hide_value=False, unit=1):
+                 fields=None, dnp=False, hide_value=False, unit=1, in_bom=True):
         self.sch, self.lib_id, self.ref, self.value = sch, lib_id, ref, value
         self.x, self.y = snap(at[0]), snap(at[1])
         self.rot, self.mirror, self.unit = rot % 360, mirror, unit
         self.footprint, self.fields, self.dnp = footprint, fields or {}, dnp
         self.hide_value = hide_value
+        self.in_bom = in_bom
         self.block = sch.use_symbol(lib_id)
         self.pins = parse_pins(self.block)
         self.uuid = uid()
@@ -210,7 +211,7 @@ class Part:
                     seen.append(n)
                     pin_lines.append(f'(pin "{n}" (uuid "{uid()}"))')
         return (f'(symbol (lib_id "{self.lib_id}") (at {self.x} {self.y} {self.rot}){mirror} (unit {self.unit}) '
-                f'(exclude_from_sim no) (in_bom {"no" if self.ref.startswith("#") else "yes"}) (on_board yes) '
+                f'(exclude_from_sim no) (in_bom {"yes" if self.in_bom and not self.ref.startswith("#") else "no"}) (on_board yes) '
                 f'(dnp {"yes" if self.dnp else "no"}) (uuid "{self.uuid}") '
                 + " ".join(props) + " " + " ".join(pin_lines) +
                 f' (instances (project "{project}" (path "/{root_uuid}" (reference "{self.ref}") (unit {self.unit})))))')

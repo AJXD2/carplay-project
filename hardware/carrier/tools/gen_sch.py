@@ -160,7 +160,7 @@ def input_protection(x, y):
     node = (vs[0], vs[1] - 10.16)
     S.wire(vs, node)
     S.label(node, "VMID", (0, -1), color=red)
-    cvs = C("100nF")
+    cvs = C("100nF", fp=FP_C0805)                 # sees battery transients: 100 V part
     cvs.move_pin_to("1", (vs[0] - 10.16, node[1]))
     S.wire(node, cvs.pin("1"))
     S.junction(node)
@@ -263,7 +263,7 @@ def buck(x, y):
     S.wire(cboot.pin("2"), ct)
     S.junction(ct)
     ind = S.part("Device:L", ref("L"), "4.7uH", (0, 0), rot=90,
-                 footprint="Inductor_SMD:L_Bourns_SRP1038C_10.0x10.0mm")
+                 footprint="Inductor_SMD:L_APV_APH0840")
     ind.move_pin_to("1", (sx + 25.4, sy))
     S.wire(sw, ct, ind.pin("1"))
 
@@ -579,7 +579,7 @@ def output_filter(x, y):
             x0, y0 = x + 12.7 + col * 60.96, y + 15.24 + row * 17.78
             S.label((x0, y0), f"AMP_{ch}{pol}", (-1, 0), color=spk, stub=0)
             ind = S.part("Device:L", ref("L"), "3.3uH", (0, 0), rot=90,
-                         footprint="Inductor_SMD:L_Wuerth_XHMI-6060")
+                         footprint="Inductor_SMD:L_Chilisin_BMRx00060630")
             ind.move_pin_to("1", (x0 + 5.08, y0))
             ind.place_prop("Reference", 0, -2.54)
             ind.place_prop("Value", 0, 2.54)
@@ -609,7 +609,7 @@ def _swc_chain(x0, y0, net_in, net_out):
     pu = R("1k")
     pu.move_pin_to("2", (n, y0))
     S.power(pu.pin("1"), "+3V3")
-    esd = S.part("Device:D_TVS", ref("D"), "PESD5V0S1BL", (0, 0), rot=90, footprint="Diode_SMD:D_SOD-323")
+    esd = S.part("Device:D_TVS", ref("D"), "H15VND3B", (0, 0), rot=90, footprint="Diode_SMD:D_SOD-323")
     esd.move_pin_to("2", (n, y0))
     esd.place_prop("Reference", 2.54, -1.27, "left", rot=0)
     esd.place_prop("Value", 2.54, 1.27, "left", rot=0)
@@ -712,7 +712,7 @@ def rtc_eeprom(x, y):
     S.pwr_flag((bt[0] + 15.24, bt[1]))
     S.junction((bt[0] + 15.24, bt[1]))
     bat = S.part("Device:Battery_Cell", ref("BT"), "CR2032", (0, 0),
-                 footprint="Battery:BatteryHolder_Keystone_1060_1x2032")
+                 footprint="Battery:BatteryHolder_MYOUNG_BS-07-A1BJ001_CR2032")
     bat.move_pin_to("1", (bt[0] + 30.48, bt[1]))
     bat.place_prop("Reference", 3.81, -2.54, "left")
     bat.place_prop("Value", 3.81, 0, "left")
@@ -749,13 +749,13 @@ def rtc_eeprom(x, y):
     rwp.move_pin_to("2", wn)
     S.power(rwp.pin("1"), "+3V3")
     jp = S.part("Jumper:SolderJumper_2_Open", ref("JP"), "EEPROM_WP", (0, 0), rot=270,
-                footprint="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
+                footprint="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     jp.move_pin_to("1", wn)
     jp.place_prop("Reference", 2.54, -1.27, "left", rot=0)
     jp.place_prop("Value", 2.54, 1.27, "left", rot=0)
     S.power(jp.pin("2"), "GND")
     tp = S.part("Connector:TestPoint", ref("TP"), "WP", (wn[0] + 7.62, wn[1]),
-                footprint="TestPoint:TestPoint_Pad_D1.5mm")
+                footprint="TestPoint:TestPoint_Pad_D1.5mm", in_bom=False)
     tp.place_prop("Reference", 1.27, -5.08, "left")
     tp.place_prop("Value", 1.27, -2.54, "left")
     for i, net in enumerate(("ID_SDA", "ID_SCL")):
@@ -824,7 +824,7 @@ def clock_option(x, y):
     S.wire(xt.pin("2"), (xt.pin("2")[0] + 3.81, cy))
     S.label((xt.pin("2")[0] + 3.81, cy), "XTO", (1, 0), stub=0)
     for px, side in ((cx - 7.62, -1), (xt.pin("2")[0] + 3.81, 1)):
-        c = shunt(C("18pF", dnp=True), (px, cy))
+        c = shunt(C("33pF", dnp=True), (px, cy))
         if side < 0:
             c.place_prop("Reference", -2.54, -1.27, "right")
             c.place_prop("Value", -2.54, 1.27, "right")
@@ -889,7 +889,7 @@ def misc(x, y):
     grey = (90, 90, 90)
     S.box(x, y, x + 93.98, y + 55.88, "DEBUG UART + MOUNTING", grey)
     j = S.part("Connector:Conn_01x03_Pin", ref("J"), "UART", (x + 10.16, y + 17.78),
-               footprint="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+               footprint="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical", dnp=True)
     j.place_prop("Reference", 0, -6.35)
     j.place_prop("Value", 0, 6.35 + 2.54)
     S.label(j.pin("1"), "UART_TX", (1, 0), color=COLORS["misc"])
@@ -898,13 +898,90 @@ def misc(x, y):
     holes = [("Pi", "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via")] * 4 + \
             [("Heatsink", "MountingHole:MountingHole_3.2mm_M3_Pad_Via")] * 2
     for i, (val, fp) in enumerate(holes):
-        h = S.part("Mechanical:MountingHole_Pad", ref("H"), val, (x + 38.1 + 10.16 * i, y + 38.1), footprint=fp)
+        h = S.part("Mechanical:MountingHole_Pad", ref("H"), val, (x + 38.1 + 10.16 * i, y + 38.1), footprint=fp,
+                   in_bom=False)
         h.place_prop("Reference", 0, -7.62)
         h.place_prop("Value", 0, -5.08)
         S.power(h.pin("1"), "GND")
     S.text(x + 2.54, y + 50.8, "Pi holes and the amp heatsink screws bond the Pi, heatsink and board GND.",
            size=1.27)
-    S.text(x + 2.54, y + 53.34, "UART: 3.3 V, GPIO14/15 serial console.", size=1.27)
+    S.text(x + 2.54, y + 53.34, "UART: 3.3 V, GPIO14/15 serial console. Header not fitted: solder one on if needed.", size=1.27)
+
+
+# ----------------------------------------------------------------- parts ---
+# (value, footprint suffix) -> (MPN, manufacturer, LCSC). All checked in stock
+# at JLCPCB 2026-09-22. Ceramics on +12V rails are 50 V X7R; the two 100 nF
+# upstream of the load-dump cutoff are 100 V (the TVS clamps up to 53 V).
+
+UR, FJ, SEM = "UNI-ROYAL", "FOJAN", "Samsung Electro-Mechanics"
+PARTS = {
+    ("0R", "R_0603"): ("0603WAF0000T5E", UR, "C21189"),
+    ("100R", "R_0603"): ("0603WAF1000T5E", UR, "C22775"),
+    ("1k", "R_0603"): ("0603WAF1001T5E", UR, "C21190"),
+    ("3.65k", "R_0603"): ("FRC0603F3651TS", FJ, "C2930089"),
+    ("3.9k", "R_0603"): ("0603WAF3901T5E", UR, "C23018"),
+    ("5.11k", "R_0603"): ("FRC0603F5111TS", FJ, "C2933233"),
+    ("10k", "R_0603"): ("0603WAF1002T5E", UR, "C25804"),
+    ("24.9k", "R_0603"): ("0603WAF2492T5E", UR, "C25962"),
+    ("26.7k", "R_0603"): ("FRC0603F2672TS", FJ, "C2930082"),
+    ("33.2k", "R_0603"): ("FRC0603F3322TS", FJ, "C2933200"),
+    ("47k", "R_0603"): ("0603WAF4702T5E", UR, "C25819"),
+    ("95.3k", "R_0603"): ("FRC0603F9532TS", FJ, "C2907078"),
+    ("100k", "R_0603"): ("0603WAF1003T5E", UR, "C25803"),
+    ("22pF", "C_0603"): ("CL10C220JB8NNNC", SEM, "C1653"),
+    ("33pF", "C_0603"): ("CL10C330JB8NNNC", SEM, "C1663"),
+    ("1nF", "C_0603"): ("CL10C102JB8NNNC", SEM, "C163508"),
+    ("10nF", "C_0603"): ("0603B103K500NT", "FH", "C57112"),
+    ("100nF", "C_0603"): ("CC0603KRX7R9BB104", "YAGEO", "C14663"),
+    ("100nF", "C_0805"): ("CL21B104KCFNNNE", SEM, "C28233"),
+    ("220nF", "C_0603"): ("CL10B224KB8NNNC", SEM, "C64705"),
+    ("22nF", "C_0805"): ("CL21B223KBANNNC", SEM, "C1729"),
+    ("1uF", "C_0603"): ("CL10B105KB8NQNC", SEM, "C5199872"),
+    ("1uF", "C_0805"): ("CL21B105KBFNNNE", SEM, "C28323"),
+    ("2.2uF", "C_0805"): ("GRM21BR71E225KE11L", "Murata", "C77081"),
+    ("10uF", "C_1206"): ("CL31B106KBHNNNE", SEM, "C89632"),
+    ("47uF", "C_1210"): ("TMK325ABJ476MM-P", "Taiyo Yuden", "C90142"),
+    ("470uF", "CP_Elec_10x12.5"): ("KAT1H471M10130PDT", "KNSCHA", "C55348714"),
+    ("3.3uH", "L_Chilisin_BMRx00060630"): ("MHCI06030-3R3M-R8", "Chilisin", "C108294"),
+    ("4.7uH", "L_APV_APH0840"): ("APH0840T4R7MP", "APV", "C54123781"),
+    ("12MHz", ""): ("X322512MSB4SI", "YXC", "C9002"),
+    ("1N4148W", ""): ("1N4148W", "ST(Semtech)", "C81598"),
+    ("BZT52C15", ""): ("BZT52C15", "hongjiacheng", "C19077412"),
+    ("H15VND3B", ""): ("H15VND3B", "hongjiacheng", "C20615813"),
+    ("SMBJ33CA", ""): ("SMBJ33CA", "hongjiacheng", "C19077587"),
+    ("MMBT3904", ""): ("MMBT3904", "Changjing", "C20526"),
+    ("2N7002", ""): ("2N7002", "Changjing", "C8545"),
+    ("BUK7Y4R8-60E", ""): ("BUK7Y4R8-60EX", "Nexperia", "C503619"),
+    ("LM74800-Q1", ""): ("LM74800QDRRRQ1", "Texas Instruments", "C3215600"),
+    ("LM61460-Q1", ""): ("LM61460AFSQRJRRQ1", "Texas Instruments", "C2876600"),
+    ("TLV75533PDBV", ""): ("TLV75533PDBVR", "Texas Instruments", "C404027"),
+    ("TAS6424E-Q1", ""): ("TAS6424EQDKQRQ1", "Texas Instruments", "C4991409"),
+    ("ADS1115IDGS", ""): ("ADS1115IDGSR", "Texas Instruments", "C37593"),
+    ("DS3231SN", ""): ("DS3231SN#T&R", "Analog Devices", "C9866"),
+    ("CAT24C32", ""): ("CAT24C32WI-GT3", "onsemi", "C81193"),
+    ("CS2100-CP", ""): ("CS2100CP-CZZR", "Cirrus Logic", "C2663267"),
+    ("CR2032", ""): ("BS-07-A1BJ001", "MYOUNG", "C2979167"),
+    ("Harness_4Runner", ""): ("430452000", "Molex", "C485576"),
+    ("Pi 4 GPIO", ""): ("ZX-PM2.54-2-20PY", "Megastar", "C7499354"),
+    ("FAN1", ""): ("470531000", "Molex", "C240840"),
+    ("FAN2", ""): ("470531000", "Molex", "C240840"),
+}
+
+
+def assign_parts():
+    missing = []
+    for p in S.parts:
+        if p.ref.startswith("#") or not p.in_bom:
+            continue
+        fp = (p.footprint or "").split(":")[-1]
+        hit = PARTS.get((p.value, "")) or next(
+            (v for (val, pre), v in PARTS.items() if val == p.value and pre and fp.startswith(pre)), None)
+        if hit:
+            p.fields.update({"MPN": hit[0], "Manufacturer": hit[1], "LCSC": hit[2]})
+        elif not p.dnp:
+            missing.append(f"{p.ref} {p.value} {fp}")
+    if missing:
+        raise SystemExit("no part number for: " + ", ".join(missing))
 
 
 def main():
@@ -923,6 +1000,7 @@ def main():
     output_filter(288.29, 226.06)
     fans(420.37, 226.06)
     clock_option(288.29, 320.04)
+    assign_parts()
     S.write(OUT)
     print("wrote", os.path.relpath(OUT))
 
