@@ -85,5 +85,48 @@ def main():
         print(f"  Pi hole at {bx - sx:.2f}, {by - sy:.2f} mm from the top-left corner (viewed from the top)")
 
 
+def frame(rim=4.0, bar=3.0, boss=3.5):
+    """Material-saving version: a rim along the exact outline (notch
+    included), rings around the four Pi screw holes and bars tying them to
+    the rim. The bars stay clear of the Pi header, so it still seats on the
+    standoffs.  ->  mech/fit_frame.stl"""
+    pts = [xy(x, y) for x, y in place.outline_points(0, 0, W, H)]
+    def outline():
+        return cq.Workplane("XY").polyline(pts).close()
+
+    body = outline().extrude(T)
+    body = body.cut(outline().offset2D(-rim).extrude(T))
+    sx, sy = place.OUTLINE_SHIFT
+    top, bottom, right = sy, H + sy, W + sx
+    holes = [place.pi_to_board(hx, hy) for hx, hy in place.PI_HOLES]
+    xl, xr = sorted({round(h[0], 3) for h in holes})
+    yt, yb = sorted({round(h[1], 3) for h in holes})
+
+    def bar_(x0, y0, x1, y1):
+        cx, cy = xy((x0 + x1) / 2, (y0 + y1) / 2)
+        w, h = (abs(x1 - x0) or bar), (abs(y1 - y0) or bar)
+        return cq.Workplane("XY").center(cx, cy).rect(w, h).extrude(T)
+
+    parts = [bar_(xl, yt, xr, yt),                 # between the upper holes
+             bar_(xl, yt, xl, yb), bar_(xr, yt, xr, yb),   # down both sides
+             bar_(xl, top, xl, yt), bar_(xr, top, xr, yt),  # up to the top rim
+             bar_(xl, yb, xl, bottom), bar_(xr, yb, xr, bottom),  # down to the bottom rim
+             bar_(xr, yt, right, yt), bar_(xr, yb, right, yb)]    # across to the right rim
+    for hx, hy in holes:
+        parts.append(cq.Workplane("XY").center(*xy(hx, hy)).circle(boss).extrude(T))
+    for p in parts:
+        body = body.union(p)
+    for hx, hy in holes:
+        body = body.cut(cq.Workplane("XY").center(*xy(hx, hy)).circle(PI_HOLE / 2).extrude(T))
+    # clip anything that pokes outside the outline (bars into the notch)
+    body = body.intersect(outline().extrude(T))
+    out = os.path.join(ROOT, "mech", "fit_frame.stl")
+    cq.exporters.export(body, out, tolerance=0.02, angularTolerance=0.1)
+    full = outline().extrude(T).val().Volume()
+    print(f"{os.path.relpath(out)}: {body.val().Volume() / 1000:.1f} cm3, "
+          f"{100 * (1 - body.val().Volume() / full):.0f}% less than the solid plate")
+
+
 if __name__ == "__main__":
     main()
+    frame()
