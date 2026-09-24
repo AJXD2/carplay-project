@@ -128,6 +128,10 @@ def nets_of(fp):
     return {p.GetNetname() for p in fp.Pads() if p.GetNetname()}
 
 
+def has(fp, text):
+    return any(text in n for n in nets_of(fp))
+
+
 def section(fps, name):
     return {r: f for r, f in fps.items() if f.GetFieldText("Section") == name}
 
@@ -211,7 +215,92 @@ def place_amp(fps, ax, ay):
     hs = find(section(fps, "misc"), "Heatsink", n=2)
     P(0, -HEATSINK_Y, hs[0])
     P(0, HEATSINK_Y, hs[1])
-    P(-12.0, 20.0, one(amp, "470uF"))
+    P(10.0, -24.0, one(amp, "470uF"))                  # PVDD bulk, above the chip
+
+
+# --- harness, input protection, buck ------------------------------------------
+
+J1_PIN1 = (159.0, 44.0)                     # vertical along the right edge
+PROT_Y = 33.0                               # battery path row
+BUCK_AT = (62.0, 13.0)                      # LM61460 centre
+
+
+def place_harness(fps, ox, oy):
+    """J1 stands along the right edge, pins 1..10 running down, next to the
+    amp's filter caps so the speaker runs stay short."""
+    j1 = fps["J1"]
+    x, y = ox + J1_PIN1[0], oy + J1_PIN1[1]
+    for rot in (0, 90, 180, 270):
+        put_pad(j1, 1, x, y, rot)
+        p2, p11 = pad_xy(j1, 2), pad_xy(j1, 11)
+        if abs(p2[0] - x) < 0.05 and p2[1] > y and p11[0] < x:
+            return
+    raise SystemExit("J1: no rotation found")
+
+
+def place_protection(fps, ox, oy):
+    """Battery enters top-right and runs left: TVS, input cap, Q1 (reverse
+    battery, source toward the battery), Q2 (load disconnect), output cap.
+    The drain tabs face each other so VMID is a short fat node."""
+    g = section(fps, "protection")
+    y = oy + PROT_Y
+    X = lambda v: ox + v
+    put(one(g, "SMBJ33CA"), X(156.0), y - 1.0, 90)
+    c_in, c_out = sorted(find(g, "100nF", ["+12V_"], n=2), key=lambda f: has(f, "+12V_PROT"))
+    put(c_in, X(150.8), y, 90)
+    qs = find(g, "BUK7Y4R8-60E", n=2)
+    q1 = next(q for q in qs if has(q, "+12V_BATT"))
+    q2 = next(q for q in qs if q is not q1)
+    put(q1, X(143.2), y, 180)
+    put(q2, X(134.4), y, 0)
+    put(c_out, X(128.6), y, 90)
+    # controller above the FET row, gate network below Q2's gate
+    put(one(g, "LM74800-Q1"), X(139.5), y - 9.0)
+    put(one(g, "100R"), X(129.6), y + 5.0, 90)
+    put(one(g, "22nF"), X(129.6), y + 8.6, 90)
+    put(one(g, "100nF", ["VMID"]), X(135.2), y - 9.0, 90)
+    put(one(g, "220nF"), X(137.0), y - 12.6)
+    for i, v in enumerate(("95.3k", "5.11k", "3.65k")):
+        put(one(g, v), X(144.2), y - 11.6 + 1.6 * i)
+
+
+def place_buck(fps, ox, oy):
+    """LM61460 per SNVSB70F 11.2: 100 nF across each VIN/PGND pair, 10 uF
+    right behind, coil straight off SW, output caps after it; analog parts
+    on the quiet left side. TLV75533 below."""
+    g = section(fps, "buck")
+    bx, by = ox + BUCK_AT[0], oy + BUCK_AT[1]
+    P = lambda dx, dy, f, rot=0: put(f, bx + dx, by + dy, rot)
+    u = one(g, "LM61460-Q1")
+    P(0, 0, u)
+    hf = find(g, "100nF", ["+12V_PROT"], n=2)
+    P(1.15, 2.85, hf[0])
+    P(1.15, -2.85, hf[1])
+    bulk = find(g, "10uF", ["+12V_PROT"], n=2)
+    P(1.15, 5.6, bulk[0])
+    P(1.15, -5.6, bulk[1])
+    P(9.0, 0, one(g, "4.7uH"))
+    c47 = find(g, "47uF", n=2)
+    P(17.6, -2.6, c47[0], 90)
+    P(21.2, -2.6, c47[1], 90)
+    P(19.4, 2.9, one(g, "100nF", ["+5V"]))
+    # boot: CBOOT (pin 14) / RBOOT (pin 13) sit top-left
+    P(-3.0, -3.6, one(g, "100nF", ["CBOOT"]), 90)
+    P(-4.8, -3.6, one(g, "0R"), 90)
+    # analog side, clear of the switching loop
+    P(-4.2, -0.2, one(g, "1uF", ["VCC"]), 90)
+    P(-6.6, -3.6, one(g, "1uF", ["+5V"]), 90)                 # BIAS
+    P(-2.0, 3.8, one(g, "33.2k"), 90)                         # RT
+    P(-3.7, 4.8, one(g, "100k", ["EN"]), 90)
+    P(-5.3, 4.8, one(g, "26.7k"), 90)
+    P(-6.9, 1.2, one(g, "100k", ["FB"]), 90)                  # RFBT
+    P(-8.5, 1.2, one(g, "24.9k"), 90)                         # RFBB
+    P(-10.1, 1.2, one(g, "1k"), 90)                            # RFF
+    P(-11.7, 1.2, one(g, "22pF"), 90)                         # CFF
+    # 3.3 V LDO
+    P(8.0, 11.0, one(g, "TLV75533PDBV"))
+    P(4.4, 11.0, one(g, "1uF", ["+5V"]), 90)
+    P(11.6, 11.0, one(g, "1uF", ["+3V3"]), 90)
 
 
 def park(fps, origin, size):
@@ -236,4 +325,7 @@ def place_all(board, fps, origin, size):
     ox, oy = origin
     place_pi(fps, ox, oy)
     place_amp(fps, ox + AMP_AT[0], oy + AMP_AT[1])
+    place_harness(fps, ox, oy)
+    place_protection(fps, ox, oy)
+    place_buck(fps, ox, oy)
     park(fps, origin, size)
