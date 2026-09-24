@@ -4,3 +4,6 @@ datasheets/*.txt
 *-backups/
 fp-info-cache
 *.kicad_prl
+mech/assembly.*
+mech/carrier_board.step
+mech/*.svg

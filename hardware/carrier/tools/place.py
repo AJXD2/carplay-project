@@ -8,9 +8,13 @@ into J2 from the bottom.
 Everything about the Pi comes from the official HAT mechanical drawing
 (datasheets/hat-mechanical.pdf) in the Pi's own frame: board 85 x 56, header
 along the top edge, USB/Ethernet on the right short edge. PI below says where
-that frame sits on our board. It is PROVISIONAL until the Pi's position on
-the display is measured (the photos show it rotated 180 degrees with the
-ports toward the display's left edge).
+that frame sits on our board: measured from Hosyond's back-view drawing,
+scaled by the Pi's own 58 x 49 mm hole pattern (4.15 px/mm, both axes
+agree to 0.1 %). The Pi is rotated 180 degrees: header at the bottom, ports
+toward the left of the back view (the right of the screen from the front).
+The display's pogo pads land under GPIO pins 2/4/6 exactly as predicted,
+which cross-checks the orientation. Nominal holes: x 58.8 / 116.8, y 35.1 /
+84.1 from the display's top-left corner (back view); verify with a ruler.
 """
 import math
 
@@ -22,16 +26,18 @@ PLACED = set()
 # (x, y) of the Pi's own top-left corner in board coordinates, and rotation
 # of the Pi frame (0 = header at top / ports right; 180 = header at bottom /
 # ports left).
-PI = dict(x=2.0, y=23.5, rot=180)
+PI = dict(x=35.3, y=31.6, rot=180)
 
 PI_W, PI_H = 85.0, 56.0
 PI_HOLES = [(3.5, 3.5), (61.5, 3.5), (3.5, 52.5), (61.5, 52.5)]
 PI_PIN1 = (32.5 - 24.13, 3.5 + 1.27)        # inner row, end away from the USB ports
-PORT_BLOCK = (63.0, -2.0, 90.0, 58.0)      # USB + Ethernet, taller than the board height
+PORT_BLOCK = (65.0, -1.0, 90.0, 57.0)      # USB + Ethernet (13.5 mm tall): board height is 11 mm
 DSI_FLEX = (-1.0, 19.5, 5.0, 36.5)          # HAT spec display flex cutout
 
 # block anchors (board coordinates); provisional until the Pi is measured
-AMP_AT = (108.0, 68.0)                      # TAS6424 centre
+AMP_AT = (143.4, 70.0)                      # TAS6424 centre
+AMP_ROT = 90                                # block turned so outputs face up and the heatsink
+                                            # runs along the right edge
 
 
 def mm(v):
@@ -57,16 +63,17 @@ def pi_rect(r):
 
 
 def outline_points(x0, y0, w, h):
-    """Board edge: the display outline, minus a notch around the Pi's
-    USB/Ethernet block wherever it meets the edge."""
+    """Board edge: the display outline, minus a notch that runs from the
+    Pi's USB/Ethernet block out to the edge the ports face, so the tall
+    jacks clear the board and the cables can reach them."""
     nx0, ny0, nx1, ny1 = pi_rect(PORT_BLOCK)
-    nx0, nx1 = max(nx0, 0.0), min(nx1, w)
-    ny0, ny1 = max(ny0, 0.0), min(ny1, h)
-    pts = [(0, 0), (w, 0), (w, h), (0, h)]
-    if nx0 <= 0.5:                                      # notch on the left edge
+    facing = {0: "right", 90: "up", 180: "left", 270: "down"}[PI["rot"] % 360]
+    if facing == "left":
         pts = [(0, 0), (w, 0), (w, h), (0, h), (0, ny1), (nx1, ny1), (nx1, ny0), (0, ny0)]
-    elif nx1 >= w - 0.5:                                # notch on the right edge
+    elif facing == "right":
         pts = [(0, 0), (w, 0), (w, ny0), (nx0, ny0), (nx0, ny1), (w, ny1), (w, h), (0, h)]
+    else:
+        raise SystemExit("notch for a rotated Pi not written yet")
     return [(x0 + x, y0 + y) for x, y in pts]
 
 
@@ -176,8 +183,16 @@ def place_amp(fps, ax, ay):
     screws at both ends of the chip."""
     amp, flt = section(fps, "amp"), section(fps, "filter")
     u = one(amp, "TAS6424E-Q1")
-    put(u, ax, ay)
-    P = lambda dx, dy, f, rot=0: put(f, ax + dx, ay + dy, rot)
+
+    def P(dx, dy, f, rot=0):
+        # offsets are drawn for the chip upright; turn them with the block
+        # (KiCad angles are counter-clockwise as seen on screen, y down)
+        a = math.radians(AMP_ROT)
+        rx = dx * math.cos(a) + dy * math.sin(a)
+        ry = -dx * math.sin(a) + dy * math.cos(a)
+        put(f, ax + rx, ay + ry, (rot + AMP_ROT) % 360)
+
+    P(0, 0, u)
 
     # left: VBAT, VREG/VCOM (to AREF), AVDD (to AVSS), GVDD x2, VDD. Horizontal
     # caps stacked one courtyard apart, chip-side pad toward their pins.
@@ -215,25 +230,27 @@ def place_amp(fps, ax, ay):
     hs = find(section(fps, "misc"), "Heatsink", n=2)
     P(0, -HEATSINK_Y, hs[0])
     P(0, HEATSINK_Y, hs[1])
-    P(9.0, -27.5, one(amp, "470uF"))                   # PVDD bulk, clear of the heatsink
+    # PVDD bulk sits beside the output filters, clear of the heatsink
+    put(one(amp, "470uF"), ax + 4.6, ay - 50.0)
 
 
 # --- harness, input protection, buck ------------------------------------------
 
-J1_PIN1 = (159.0, 44.0)                     # vertical along the right edge
-PROT_Y = 33.0                               # battery path row
-BUCK_AT = (62.0, 13.0)                      # LM61460 centre
+J1_PIN1 = (104.0, 7.0)                      # along the top edge, pins 1..10 running right
+PROT_Y = 21.0                               # battery path row
+PROT_DX = -55.2                             # protection block shifted left from its drawn spot
+BUCK_AT = (80.0, 60.0)                      # LM61460 centre, over the Pi next to its 5V pins
 
 
 def place_harness(fps, ox, oy):
-    """J1 stands along the right edge, pins 1..10 running down, next to the
-    amp's filter caps so the speaker runs stay short."""
+    """J1 sits along the top edge (the harness plug points at the firewall),
+    speaker pins toward the amp's output filters."""
     j1 = fps["J1"]
     x, y = ox + J1_PIN1[0], oy + J1_PIN1[1]
     for rot in (0, 90, 180, 270):
         put_pad(j1, 1, x, y, rot)
         p2, p11 = pad_xy(j1, 2), pad_xy(j1, 11)
-        if abs(p2[0] - x) < 0.05 and p2[1] > y and p11[0] < x:
+        if abs(p2[1] - y) < 0.05 and p2[0] > x and p11[1] > y:
             return
     raise SystemExit("J1: no rotation found")
 
@@ -244,7 +261,7 @@ def place_protection(fps, ox, oy):
     The drain tabs face each other so VMID is a short fat node."""
     g = section(fps, "protection")
     y = oy + PROT_Y
-    X = lambda v: ox + v
+    X = lambda v: ox + v + PROT_DX
     put(one(g, "SMBJ33CA"), X(156.0), y - 1.0, 90)
     c_in, c_out = sorted(find(g, "100nF", ["+12V_"], n=2), key=lambda f: has(f, "+12V_PROT"))
     put(c_in, X(150.8), y, 90)
@@ -336,47 +353,47 @@ def chain(g, *specs):
 def place_small(fps, ox, oy):
     X, Y = (lambda v: ox + v), (lambda v: oy + v)
 
-    # RTC, coin cell, ID EEPROM over the Pi (top side is free there)
+    # RTC and coin cell in the top-left corner, ID EEPROM beside them
     rtc = section(fps, "rtc")
-    put(one(rtc, "CR2032"), X(33.0), Y(45.8))
-    put(one(rtc, "DS3231SN"), X(71.0), Y(38.0))
-    y = pack(chain(rtc, ("100nF", "+3V3"), ("10k", "RTC_INT")), X(64.0), Y(45.0), X(80.0))
-    put(one(rtc, "CAT24C32"), X(71.0), y + 4.0)
-    pack(find(rtc, n=0), X(62.0), y + 8.5, X(81.0))
+    put(one(rtc, "CR2032"), X(6.0), Y(15.0))
+    put(one(rtc, "DS3231SN"), X(40.5), Y(9.0))
+    put(one(rtc, "CAT24C32"), X(40.5), Y(22.5))
+    pack(find(rtc, n=0), X(48.5), Y(2.5), X(66.0))
 
-    # MCLK option (not fitted) beside the RTC
-    clk = section(fps, "clock")
-    pack(find(clk, n=0), X(40.0), Y(59.6), X(62.0))
-
-    # key / lights / reverse sensing and power hold, next to J1's control pins
+    # key / lights / reverse sensing next to J1's control pins (top right)
     hold = section(fps, "hold")
-    y = Y(88.0)
+    y = Y(2.0)
     for net in ("ACC_ON", "LIGHTS_ON", "REVERSE"):
         base = next(f for f in find(hold, "MMBT3904", n=0) if has(f, net))
         parts = [one(hold, "47k", [f"Net-({base.GetReference()}-B)"]),
                  one(hold, "10k", [f"Net-({base.GetReference()}-B)"]),
                  one(hold, "100nF", [f"Net-({base.GetReference()}-B)"]), base,
                  one(hold, "10k", [net])]
-        pack(parts, X(126.0), y, X(164.0))
+        pack(parts, X(137.0), y, X(164.5))
         y += 4.2
-    pack(find(hold, n=0), X(96.0), Y(96.0), X(124.0))
+    # power-hold network over the Pi, on the way to the LM74800's EN pin
+    pack(find(hold, n=0), X(95.0), Y(37.0), X(113.5))
 
-    # steering wheel + battery ADC
+    # steering wheel + battery ADC over the Pi
     swc = section(fps, "swc")
-    put(one(swc, "ADS1115IDGS"), X(80.0), Y(92.0))
-    pack(find(swc, n=0), X(56.0), Y(86.0), X(76.0))
+    put(one(swc, "ADS1115IDGS"), X(88.0), Y(47.0))
+    pack(find(swc, n=0), X(63.0), Y(37.0), X(93.0))
+
+    # audio clocks bottom right, between the amp's clock pins and the Pi's I2S pins
+    clk = section(fps, "clock")
+    pack(find(clk, n=0), X(123.0), Y(84.5), X(163.5))
 
     # fans along the bottom-left edge so their cables come off the board edge
     fans = section(fps, "fans")
     for i, net in enumerate(("FAN1", "FAN2")):
         hdr = next(f for f in find(fans, n=0) if f.GetValue() == net)
-        put(hdr, X(4.0 + 24.0 * i), Y(97.5))
+        put(hdr, X(4.0 + 24.0 * i), Y(98.5))
         rest = [f for f in find(fans, n=0) if any(net in n for n in nets_of(f)) or
                 has(f, f"Net-({hdr.GetReference()}-PWM)")]
-        pack(rest, X(2.0 + 24.0 * i), Y(84.0), X(24.0 + 24.0 * i))
+        pack(rest, X(2.0 + 24.0 * i), Y(89.3), X(24.0 + 24.0 * i))
 
-    # debug UART (not fitted) in the corner
-    put(fps["J3"], X(52.0), Y(95.0))
+    # debug UART (not fitted) on the bottom edge
+    put(fps["J3"], X(52.0), Y(92.5))
 
 
 def park(fps, origin, size):
@@ -401,18 +418,19 @@ def heatsink_outline(board, ox, oy):
     """Heatsink footprint (tools/heatsink.py) on Dwgs.User and F.Fab, so tall
     parts stay out from under it. Everything under it must be < 2.2 mm."""
     ax, ay = ox + AMP_AT[0], oy + AMP_AT[1]
+    hw, hl = (20.7, 10.0) if AMP_ROT % 180 else (10.0, 20.7)
     for layer in (pcbnew.Dwgs_User, pcbnew.F_Fab):
         r = pcbnew.PCB_SHAPE(board)
         r.SetShape(pcbnew.SHAPE_T_RECT)
-        r.SetStart(pcbnew.VECTOR2I(mm(ax - 10.0), mm(ay - 20.7)))
-        r.SetEnd(pcbnew.VECTOR2I(mm(ax + 10.0), mm(ay + 20.7)))
+        r.SetStart(pcbnew.VECTOR2I(mm(ax - hw), mm(ay - hl)))
+        r.SetEnd(pcbnew.VECTOR2I(mm(ax + hw), mm(ay + hl)))
         r.SetLayer(layer)
         r.SetWidth(mm(0.15))
         board.Add(r)
     t = pcbnew.PCB_TEXT(board)
     t.SetText("HEATSINK 20x41.4 (mech/heatsink.step): parts under it < 2.2 mm")
     t.SetLayer(pcbnew.Dwgs_User)
-    t.SetPosition(pcbnew.VECTOR2I(mm(ax), mm(ay + 22.0)))
+    t.SetPosition(pcbnew.VECTOR2I(mm(ax), mm(ay + hl + 1.5)))
     t.SetTextSize(pcbnew.VECTOR2I(mm(0.8), mm(0.8)))
     board.Add(t)
 
