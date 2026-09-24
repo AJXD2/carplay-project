@@ -10,10 +10,11 @@ M3 screws, Arctic Silver 5), trimmed so a CNC shop can cut the fins:
     2.20 mm tall: the chip stands 2.33 +/- 0.09 mm (DKQ0056A note 6), so the
     base always lands on the chip first and the screws clamp it down. The feet
     also ground the heatsink (SLOSE73A 12.1.1).
-  * M3 tapped 5 mm deep from below: M3 x 6 screws come up through the board.
+  * M3 tapped from below (2.5 drill 5 deep, 4 mm full thread): M3 x 5 screws
+    come up through the 1.6 mm board (3.4 mm engagement; M3 x 6 would bottom).
 
-Material 6061-T6, black anodise optional (the feet and base underside must
-stay bare metal for grounding and heat transfer).
+Material 6061-T6, no finish: anodising insulates, and the heatsink is
+grounded through its feet and screws. Drawing: tools/heatsink_drawing.py.
 
     .venv/bin/python tools/heatsink.py   ->  mech/heatsink.step, .stl, .svg
 """

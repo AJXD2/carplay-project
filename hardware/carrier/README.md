@@ -267,9 +267,10 @@ From Amazon:
 | opt. | 4-pin PWM fan extensions | [B0CNLDNZB2](https://www.amazon.com/dp/B0CNLDNZB2) |
 
 With the board order (JLCPCB): the heatsink as a CNC part from
-`mech/heatsink.step`: 6061-T6 aluminium, two M3 tapped holes 5 mm deep from
-the bottom of the feet, optional black anodise with the base and feet left
-bare. Also needed: thermal paste (Arctic MX-4 or similar) and two M3 x 6 mm
+`mech/heatsink.step` plus `mech/heatsink_drawing.pdf` (threads, tolerances):
+6061-T6 aluminium, **no surface finish** (anodising would insulate it; it is
+grounded through its feet), two M3 threads in the feet, foot height
+2.20 +/-0.05 mm. Also needed: thermal paste (Arctic MX-4 or similar) and two M3 x 5 mm
 screws (they go up through the board into the heatsink).
 
 ## Files
