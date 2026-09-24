@@ -15,6 +15,24 @@ import csv, os, zipfile
 with zipfile.ZipFile("fab/carrier_gerbers.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for f in sorted(os.listdir("out/jlc/gerber")):
         z.write(os.path.join("out/jlc/gerber", f), f)
+# one line per LCSC part: JLC confirms only the first of two lines that
+# share a part number (the fan headers FAN1/FAN2 are the same part)
+lines = list(csv.DictReader(open("fab/carrier_bom.csv")))
+merged = {}
+for x in lines:
+    k = x["LCSC"]
+    if k in merged:
+        m = merged[k]
+        m["Designator"] += "," + x["Designator"]
+        m["Qty"] = str(int(m["Qty"]) + int(x["Qty"]))
+        if x["Comment"] not in m["Comment"].split("/"):
+            m["Comment"] += "/" + x["Comment"]
+    else:
+        merged[k] = dict(x)
+with open("fab/carrier_bom.csv", "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=list(lines[0].keys()), quoting=csv.QUOTE_ALL)
+    w.writeheader()
+    w.writerows(merged.values())
 rows = list(csv.DictReader(open("out/jlc/pos_raw.csv")))
 bom = {r.strip() for x in csv.DictReader(open("fab/carrier_bom.csv")) for r in x["Designator"].split(",")}
 with open("fab/carrier_cpl.csv", "w", newline="") as f:
