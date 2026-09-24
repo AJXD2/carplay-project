@@ -81,7 +81,8 @@ def main():
     print(f"{os.path.relpath(stl)}: {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f} mm")
     for hx, hy in place.PI_HOLES:
         bx, by = place.pi_to_board(hx, hy)
-        print(f"  Pi hole at {bx:.1f}, {by:.1f} mm from the top-left corner (viewed from the top)")
+        sx, sy = place.OUTLINE_SHIFT
+        print(f"  Pi hole at {bx - sx:.2f}, {by - sy:.2f} mm from the top-left corner (viewed from the top)")
 
 
 if __name__ == "__main__":

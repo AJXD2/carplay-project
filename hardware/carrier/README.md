@@ -104,38 +104,35 @@ written as notes on the schematic next to each circuit.
 
 **Display:** Hosyond 7" DSI, 165 x 103 mm. The board uses the same outline.
 
-**Where the Pi sits on the screen.** Measured from Hosyond's product photo
-of the display's back (Amazon listing, "packing list" image), not from a
-drawing:
+**Where the Pi sits on the screen.** First estimated from Hosyond's product
+photo (the Pi's 58 x 49 mm hole pattern set the scale), then **measured on
+the real screen** on 2026-09-24 with a printed fit plate and calipers, Pi
+board edge to screen edge:
 
-1. The four brass Pi standoffs were located by colour.
-2. Their spacing (240.6 x 203.1 px, ratio 1.185) matches the Pi's 58 x 49 mm
-   hole pattern (1.184), which identifies them and sets the scale:
-   4.15 px/mm, both axes agree to 0.1 %.
-3. Distances to the edges of the display's circuit board were converted
-   to mm, assuming that board is centred behind the glass.
-4. Cross-check: at that position the display's gold 5 V pogo contacts land
-   exactly under the Pi's GPIO pins 2/4/6.
+| Pi edge | To the screen edge |
+|---|---|
+| Ports side (USB/Ethernet) | 36.65 mm |
+| Display ribbon side | 43.40 mm |
+| GPIO side | 15.35 mm |
+| USB-C / HDMI side | 31.45 mm |
+
+The sums (165.05 x 102.80, all values rounded down) match the 165 x 103
+screen. Left/right differed from the photo estimate by 1.35 mm, up/down by
+under 0.2 mm. The plate's screw holes, header window and port notch all
+lined up.
 
 | Viewed from the back, from the display's top-left corner | mm |
 |---|---|
-| Upper Pi holes | x 58.8 and 116.8, y 35.1 |
-| Lower Pi holes | x 58.8 and 116.8, y 84.1 |
-| Pi outline | x 35.3 to 120.3, y 31.6 to 87.6 |
+| Upper Pi holes | x 60.15 and 118.15, y 35.1 |
+| Lower Pi holes | x 60.15 and 118.15, y 84.1 |
+| Pi outline | x 36.65 to 121.65, y 31.6 to 87.6 |
 | Orientation | rotated 180°: GPIO header at the bottom, USB/Ethernet toward the right of the screen as seen from the front |
 
-Confidence: the orientation and hole spacing are solid (Pi geometry). The
-position relative to the screen edges could be off by 1-2 mm (photo
-distortion, board revision, centring assumption). **Verify before
-ordering:** with a ruler, measure from the screen's left and top edges
-(viewed from the back) to the centre of one Pi screw. The value lives in
-`tools/place.py` (`PI = dict(x=..., y=..., rot=180)`); everything
-Pi-related (J2, holes, notch, cable slot) follows it.
-
-Routing plan to make a small error harmless: the board mounts to the Pi,
-not the screen, so all copper stays at least 3 mm from the outer edges. A
-measurement within 3 mm of the estimate then only slides or trims the
-outline; no parts or traces move.
+How the correction is applied: the board is referenced to the Pi, so the
+Pi, every part, the notch and the cable slot stay where they are and only
+the outer outline moves (`OUTLINE_SHIFT` in `tools/place.py`). All copper was
+routed at least 3 mm from the outer edges for exactly this; after the
+1.35 mm shift the closest copper is 1.65 mm from the right edge.
 
 **Board shape.** The Pi is mid-screen, so its USB/Ethernet block (13.5 mm
 tall Ethernet jack, board sits 11 mm above the Pi) is ~30 mm in from the
@@ -353,8 +350,7 @@ What each script owns:
 
 ## Open items
 
-1. Measure the Pi's position on the real screen (ruler is enough) and
-   update `PI` in `tools/place.py` if it differs.
+1. Reprint `mech/fit_plate.stl` (outline corrected) and check the edges.
 2. Measure display thickness and the display-to-Pi standoff height (3D
    model only).
 3. Tidy silkscreen; add the harness pin table next to J1.

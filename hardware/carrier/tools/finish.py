@@ -31,7 +31,28 @@ def ends(item):
     return (x, y), (LAYER[m.group(1)],) if m else (pcbnew.F_Cu,)
 
 
+BAD = ("shorting_items", "tracks_crossing", "clearance", "hole_clearance", "copper_edge_clearance")
+
+
+def repair():
+    """Delete autorouted (unlocked) tracks and vias that DRC flags as shorts
+    or clearance errors; the next finishing pass routes those links again.
+    Hand-placed copper is locked and never touched."""
+    b = pcbnew.LoadBoard(route.PCB)
+    d = json.load(open(os.path.join(ROOT, "out", "drc.json")))
+    bad = {i["uuid"] for v in d["violations"] if v["type"] in BAD for i in v["items"]}
+    gone = 0
+    for t in list(b.GetTracks()):
+        if t.m_Uuid.AsString() in bad and not t.IsLocked():
+            b.Remove(t)
+            gone += 1
+    b.Save(route.PCB)
+    print(f"finish: repair removed {gone} autorouted segments")
+
+
 def main():
+    if sys.argv[1:] == ["repair"]:
+        return repair()
     b = pcbnew.LoadBoard(route.PCB)
     route.board = b
     route.FPS.update({f.GetReference(): f for f in b.GetFootprints()})
@@ -45,7 +66,7 @@ def main():
         net = re.search(r"\[(.*?)\]", a["description"]).group(1)
         (pa, la), (pz, lz) = ends(a), ends(z)
         path = None
-        for margin in (4.0, 10.0):
+        for margin in (4.0, 10.0, 20.0):
             path = maze.route(b, net, pa, pz, route.OX, route.OY, width=0.2, margin=margin,
                               start_layers=la, end_layers=lz)
             if path:

@@ -611,7 +611,8 @@ def gnd_fanout(netname="GND"):
 MAZE_NETS = [("+3V3", ("R36", "1"), ("U8", "4")),      # fan tach pull-ups by the Pi header: +3V3 has
              ("+3V3", ("R34", "1"), ("R36", "1")),     # no plane, so their feed is reserved first
              "Net-(U1-SW)", "/OV_SET", "/DGATE", "/+12V_BATT",
-             ("/SW_5V", ("C22", "2"), SW_TAP), ("+5V", ("U5", "1"), ("U6", "3")),
+             "Net-(U5-CBOOT)", ("/SW_5V", ("C22", "2"), SW_TAP), ("+5V", ("U5", "1"), ("U6", "3")),
+             "Net-(U5-EN{slash}SYNC)", "/I2S_FSYNC",
              "/FAN1_PWM", "/FAN2_PWM", "/FAN1_TACH", "/~{RTC_INT}", "/SWC1_ADC"]
 
 

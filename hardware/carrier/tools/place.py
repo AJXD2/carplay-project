@@ -66,7 +66,11 @@ def pi_rect(r):
 # Pi, as a shift of the outer edge in mm (+x = right, +y = down, top view).
 # Everything else (Pi, parts, notch, slot) stays put; copper keeps 3 mm from
 # the edge, so shifts up to about 3 mm need no rerouting.
-OUTLINE_SHIFT = (0.0, 0.0)
+# Measured 2026-09-24 with calipers, Pi board edge to screen edge: ports
+# side 36.65, ribbon side 43.40, GPIO side 15.35, USB-C/HDMI side 31.45
+# (rounded down; sums 165.05 x 102.80). Against the photo estimate the
+# screen sits 1.35 mm further toward the ports; up/down agrees within 0.15.
+OUTLINE_SHIFT = (-1.35, 0.0)
 
 
 def outline_points(x0, y0, w, h):
@@ -406,7 +410,7 @@ def place_small(fps, ox, oy):
 
     # audio clocks bottom right, between the amp's clock pins and the Pi's I2S pins
     clk = section(fps, "clock")
-    pack(find(clk, n=0), X(123.0), Y(84.5), X(163.5))
+    pack(find(clk, n=0), X(123.0), Y(84.5), X(159.5))
 
     # fans along the bottom-left edge so their cables come off the board edge
     fans = section(fps, "fans")
@@ -431,7 +435,7 @@ def place_small(fps, ox, oy):
     # mic jack on the right edge beside the PCM1808 (plug enters from the
     # side), its bias/filter parts in the strip between them
     mic = section(fps, "mic")
-    put(one(mic, "MIC"), X(154.5), Y(96.0), 180)
+    put(one(mic, "MIC"), X(154.5), Y(95.4), 180)
     pack(find(mic, n=0), X(126.0), Y(93.6), X(147.5))
 
     # status LEDs next to the debug header: 12V, 5V, PI HOLD, left to right

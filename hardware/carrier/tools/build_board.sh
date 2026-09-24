@@ -19,7 +19,9 @@ if [ "$1" != noauto ]; then
 fi
 kicad-cli pcb drc --schematic-parity --format json -o out/drc.json carrier.kicad_pcb > /dev/null
 if [ "$1" != noauto ]; then
-    for pass in 1 2; do
+    for pass in 1 2 3; do
+        $KPY tools/finish.py repair 2>&1 | grep "finish:"
+        kicad-cli pcb drc --schematic-parity --format json -o out/drc.json carrier.kicad_pcb > /dev/null
         $KPY tools/finish.py 2>&1 | grep "finish:"
         kicad-cli pcb drc --schematic-parity --format json -o out/drc.json carrier.kicad_pcb > /dev/null
     done
