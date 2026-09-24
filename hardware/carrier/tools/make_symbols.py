@@ -223,8 +223,8 @@ SYMBOLS.append(symbol(
     "harness connector car radio micro-fit",
     left=[P("+12V_BATT", "[1,11]", pa), None, P("ACC", "7", pa), P("ILLUM", "17", pa), P("REV", "10", pa), None,
           P("SWC1", "8", pa), P("SWC2", "18", pa), P("SWC_GND", "9", pa)],
-    right=[P("SPK_FL+", "3", pa), P("SPK_FL-", "13", pa), None, P("SPK_FR+", "4", pa), P("SPK_FR-", "14", pa), None,
-           P("SPK_RL+", "5", pa), P("SPK_RL-", "15", pa), None, P("SPK_RR+", "6", pa), P("SPK_RR-", "16", pa)],
+    right=[P("SPK_FR+", "3", pa), P("SPK_FR-", "13", pa), None, P("SPK_FL+", "4", pa), P("SPK_FL-", "14", pa), None,
+           P("SPK_RR+", "5", pa), P("SPK_RR-", "15", pa), None, P("SPK_RL+", "6", pa), P("SPK_RL-", "16", pa)],
     top=[],
     bottom=[P("GND", "[2,12,19]", pa), P("NC", "20", "no_connect")],
     width=27.94))

@@ -35,7 +35,7 @@ PORT_BLOCK = (65.0, -1.0, 90.0, 57.0)      # USB + Ethernet (13.5 mm tall): boar
 DSI_FLEX = (-1.0, 19.5, 5.0, 36.5)          # HAT spec display flex cutout
 
 # block anchors (board coordinates); provisional until the Pi is measured
-AMP_AT = (143.4, 70.0)                      # TAS6424 centre
+AMP_AT = (143.0, 70.0)                      # TAS6424 centre
 AMP_ROT = 90                                # block turned so outputs face up and the heatsink
                                             # runs along the right edge
 
@@ -168,11 +168,14 @@ def one(*a, **k):
 
 # --- amplifier block ---------------------------------------------------------
 
-AMP_CH = {"4": "RR", "3": "RL", "2": "FR", "1": "FL"}
+AMP_CH = {"4": "FR", "3": "FL", "2": "RR", "1": "RL"}
 AMP_ROW = {"4": -12.0, "3": -4.0, "2": 4.0, "1": 12.0}      # coil rows (y from chip centre)
-BOOT_Y = {("4", "P"): -6.99, ("4", "M"): -5.08, ("3", "P"): -3.8, ("3", "M"): -1.9,
-          ("2", "P"): 1.9, ("2", "M"): 3.8, ("1", "P"): 5.08, ("1", "M"): 6.99}
-COIL_X = {"P": 18.8, "M": 32.8}                              # coil column centres
+# boot caps centred on their BST/OUT pin pair (0.635 mm pitch)
+BOOT_Y = {("4", "P"): -6.985, ("4", "M"): -5.08, ("3", "P"): -3.175, ("3", "M"): -1.27,
+          ("2", "P"): 1.27, ("2", "M"): 3.175, ("1", "P"): 5.08, ("1", "M"): 6.985}
+COIL_X = {"P": 22.0, "M": 36.0}                              # coil column centres; the gap
+                                                             # to the chip carries the P escapes
+                                                             # and the M vias
 HEATSINK_Y = 15.5                                            # screw distance from chip centre
 
 
@@ -207,14 +210,19 @@ def place_amp(fps, ax, ay):
 
     # right: boot caps in two columns, PVDD decoupling at the corners and middle
     for ch in AMP_CH:
-        for leg, x in (("P", 6.4), ("M", 8.3)):
-            P(x, BOOT_Y[(ch, leg)], one(amp, "1uF", [f"BST_{ch}{leg}"]), 90)
+        # BST sits on the far side of OUT for P legs and the near side for M
+        # legs, so the caps face opposite ways and their traces never cross
+        for leg, x, rot in (("P", 6.4, 270), ("M", 8.3, 90)):
+            P(x, BOOT_Y[(ch, leg)], one(amp, "1uF", [f"BST_{ch}{leg}"]), rot)
     small = find(amp, "100nF", ["+12V_PROT"], n=3)
     bulk = find(amp, "10uF", ["+12V_PROT"], n=3)
     P(5.6, -10.9, small[0])
     P(7.4, -13.2, bulk[0])
-    P(10.6, 0.0, small[1], 90)
-    P(12.7, 0.0, bulk[1], 90)
+    # centre PVDD pins 42/43 are boxed in by boot caps: they drop to the
+    # +12V_PROT plane through vias under the chip body. Their 100 nF stands
+    # between channels 2 and 3; the 10 uF joins the bulk below the chip.
+    P(13.4, -0.5, small[1], 0)
+    put(bulk[1], ax - 14.0, ay + 7.6, 180)
     P(5.6, 10.9, small[2])
     P(7.4, 13.2, bulk[2])
 
@@ -230,8 +238,9 @@ def place_amp(fps, ax, ay):
     hs = find(section(fps, "misc"), "Heatsink", n=2)
     P(0, -HEATSINK_Y, hs[0])
     P(0, HEATSINK_Y, hs[1])
-    # PVDD bulk sits beside the output filters, clear of the heatsink
-    put(one(amp, "470uF"), ax + 4.6, ay - 50.0)
+    # PVDD bulk left of the coils, over the display-cable slot's end: the
+    # corridor above the filters stays free for the speaker tracks
+    put(one(amp, "470uF"), ax - 22.5, ay - 25.5, 180)
 
 
 # --- harness, input protection, buck ------------------------------------------
@@ -272,13 +281,20 @@ def place_protection(fps, ox, oy):
     put(q2, X(134.4), y, 0)
     put(c_out, X(128.6), y, 90)
     # controller above the FET row, gate network below Q2's gate
-    put(one(g, "LM74800-Q1"), X(139.5), y - 9.0)
+    # turned so each pin row faces its parts: battery side (A, DGATE, SW,
+    # OV) toward Q1 and the divider, output side (C, VS, CAP, HGATE, OUT)
+    # toward Q2, C4 and C5
+    put(one(g, "LM74800-Q1"), X(139.5), y - 9.0, 180)
     put(one(g, "100R"), X(129.6), y + 5.0, 90)
     put(one(g, "22nF"), X(129.6), y + 8.6, 90)
-    put(one(g, "100nF", ["VMID"]), X(135.2), y - 9.0, 90)
-    put(one(g, "220nF"), X(137.0), y - 12.6)
-    for i, v in enumerate(("95.3k", "5.11k", "3.65k")):
-        put(one(g, v), X(144.2), y - 11.6 + 1.6 * i)
+    # U1's output-side pins run GND, HGATE, OUT, VS, CAP, C at 0.5 mm: VS
+    # runs straight out to C5 (CAP-VS, standing) and C4 (VS-GND) on its line
+    put(one(g, "220nF"), X(133.2), y - 7.95, 270)
+    put(one(g, "100nF", ["VMID"]), X(130.5), y - 8.725, 180)
+    # divider rows in U1's pin order (OV_SET above SW): 3.65k OV-GND on top,
+    # 5.11k turned so its OV end faces U1, 95.3k SW-BATT_MON at the bottom
+    for i, (v, rot) in enumerate((("3.65k", 0), ("5.11k", 180), ("95.3k", 0))):
+        put(one(g, v), X(144.2), y - 11.6 + 1.6 * i, rot)
 
 
 def place_buck(fps, ox, oy):
@@ -358,11 +374,11 @@ def place_small(fps, ox, oy):
     put(one(rtc, "CR2032"), X(6.0), Y(15.0))
     put(one(rtc, "DS3231SN"), X(40.5), Y(9.0))
     put(one(rtc, "CAT24C32"), X(40.5), Y(22.5))
-    pack(find(rtc, n=0), X(48.5), Y(2.5), X(66.0))
+    pack(find(rtc, n=0), X(48.5), Y(3.3), X(66.0))
 
     # key / lights / reverse sensing next to J1's control pins (top right)
     hold = section(fps, "hold")
-    y = Y(2.0)
+    y = Y(3.3)
     for net in ("ACC_ON", "LIGHTS_ON", "REVERSE"):
         base = next(f for f in find(hold, "MMBT3904", n=0) if has(f, net))
         parts = [one(hold, "47k", [f"Net-({base.GetReference()}-B)"]),
@@ -370,7 +386,7 @@ def place_small(fps, ox, oy):
                  one(hold, "100nF", [f"Net-({base.GetReference()}-B)"]), base,
                  one(hold, "10k", [net])]
         pack(parts, X(137.0), y, X(164.5))
-        y += 4.2
+        y += 3.9
     # power-hold network over the Pi, on the way to the LM74800's EN pin
     pack(find(hold, n=0), X(95.0), Y(37.0), X(113.5))
 
@@ -385,12 +401,20 @@ def place_small(fps, ox, oy):
 
     # fans along the bottom-left edge so their cables come off the board edge
     fans = section(fps, "fans")
+    # tach pull-ups sit by the Pi header, under their GPIO pins, where +3V3
+    # is close: out in the fan strip nothing can reach them with +3V3
+    j2 = fps["J2"]
+    for net in ("FAN1_TACH", "FAN2_TACH"):
+        pu = next(f for f in find(fans, n=0) if has(f, "+3V3") and has(f, net))
+        pin = next(p for p in j2.Pads() if net in p.GetNetname())
+        px = pcbnew.ToMM(pin.GetPosition().x)
+        put(pu, px, Y(88.6))
     for i, net in enumerate(("FAN1", "FAN2")):
         hdr = next(f for f in find(fans, n=0) if f.GetValue() == net)
         put(hdr, X(4.0 + 24.0 * i), Y(98.5))
         rest = [f for f in find(fans, n=0) if any(net in n for n in nets_of(f)) or
                 has(f, f"Net-({hdr.GetReference()}-PWM)")]
-        pack(rest, X(2.0 + 24.0 * i), Y(89.3), X(24.0 + 24.0 * i))
+        pack(rest, X(3.3 + 24.0 * i), Y(89.3), X(25.3 + 24.0 * i))
 
     # debug UART (not fitted) on the bottom edge
     put(fps["J3"], X(52.0), Y(92.5))

@@ -462,7 +462,7 @@ def pi_header(x, y):
 
 # ----------------------------------------------------- amplifier U? (TAS6424) ---
 
-CHANNELS = ["FL", "FR", "RL", "RR"]   # amp channel 1..4
+CHANNELS = ["RL", "RR", "FL", "FR"]   # amp channel 1..4 (odd = left, SDIN L slot); board order FR FL RR RL
 
 
 def _hcap(p):
@@ -595,7 +595,7 @@ def output_filter(x, y):
             S.label((end, y0), f"SPK_{ch}{pol}", (1, 0), color=spk, stub=0)
     S.text(x + 2.54, y + 83.82, "Inductors: 3.3 uH, Isat >= 6 A, DCR <= 50 mR (SLOSE73A 10.2.1.2.4). "
            "1 uF 50 V X7R, 1 nF C0G.", size=1.27)
-    S.text(x + 2.54, y + 86.36, "Channel 1..4 = FL, FR, RL, RR. SDIN1 = SDIN2: rear plays the front stereo; fader via per-channel volume.",
+    S.text(x + 2.54, y + 86.36, "Channel 1..4 = RL, RR, FL, FR (matches J1 order on the board). SDIN1 = SDIN2; fader via per-channel volume.",
            size=1.27)
 
 

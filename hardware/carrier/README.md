@@ -23,7 +23,7 @@ Software for it lives in [`launcher/board/`](../../launcher/board/README.md).
 | Schematic | Done. ERC 0 errors / 0 warnings. |
 | Parts list (BOM) | Done. 148 fitted parts, every one with an LCSC number, stock checked at JLCPCB. |
 | Placement | Done for the nominal Pi position. DRC: no overlaps or clearance errors. |
-| Routing | Not started. |
+| Routing | Done. 0 unrouted, 0 DRC errors (silkscreen tidy pending), schematic parity 0. |
 | Silkscreen tidy | Not started (cosmetic DRC items only). |
 | Pi position on the screen | Estimated from a product photo, **not yet measured** (see Mechanical). |
 | Software | Written and tested on simulated hardware (18 tests), not installed. |
@@ -156,6 +156,12 @@ the Pi's DSI connector clears the display ribbon (HAT spec position).
 Overall **165 x 103 x 56.5 mm**. The heatsink sets the depth; shorter fins
 (e.g. 15 mm) save ~13 mm at some cooling cost, which the fans make up.
 
+**Fit test before ordering:** `tools/fit_plate.py` writes
+`mech/fit_plate.stl`, a 1.6 mm plate with the board's exact outline, notch,
+cable slot, Pi and heatsink holes and a window for the Pi header. Print it
+text side up, mount it on the Pi with the 11 mm standoffs, and check the
+edges against the screen and the holes against the standoffs.
+
 **3D model:** `tools/assembly.py` builds display + Pi 4 + board + heatsink
 (`mech/assembly.step`, `mech/assembly.stl`; generated, not committed).
 Review images: `out/3d/*.png` via `tools/render3d.py`.
@@ -177,7 +183,9 @@ them all:
 
 To build the plug: solder each wire to a pre-crimped Micro-Fit lead,
 heat-shrink it, and push the pin into its numbered hole until it clicks.
-Pin n sits directly above pin n+10.
+Pin n sits directly above pin n+10. The speaker order (FR, FL, RR, RL) is
+not a typo: it matches the amp's output order on the board, so the four
+speaker tracks run straight to the plug without crossing.
 
 | Pin | Signal | Typical wire colour |
 |---|---|---|
@@ -189,10 +197,10 @@ Pin n sits directly above pin n+10.
 | 8 | Steering wheel wire 1 (seek, volume) | KEY1 |
 | 18 | Steering wheel wire 2 (mode) | KEY2 |
 | 9 | Steering wheel ground | if separate; otherwise tie to ground |
-| 3 / 13 | Front left + / − | White / white-black |
-| 4 / 14 | Front right + / − | Gray / gray-black |
-| 5 / 15 | Rear left + / − | Green / green-black |
-| 6 / 16 | Rear right + / − | Purple / purple-black |
+| 3 / 13 | Front right + / − | Gray / gray-black |
+| 4 / 14 | Front left + / − | White / white-black |
+| 5 / 15 | Rear right + / − | Purple / purple-black |
+| 6 / 16 | Rear left + / − | Green / green-black |
 | 20 | Not used | |
 
 Finding KEY1 / KEY2: adapter plugged into the truck, key off, meter on
@@ -286,9 +294,11 @@ kicad-cli sch export bom --fields 'Value,Reference,Footprint,LCSC,MPN,Manufactur
   --labels 'Comment,Designator,Footprint,LCSC,MPN,Manufacturer,Qty,DNP' \
   --group-by 'Value,Footprint,LCSC,${DNP}' --exclude-dnp -o out/bom_jlcpcb.csv carrier.kicad_sch
 
-flatpak run --command=python3 org.kicad.KiCad tools/gen_pcb.py   # carrier.kicad_pcb from the netlist
-python3 tools/render_pcb.py              # out/pcb/board.png
-kicad-cli pcb drc --schematic-parity -o out/drc.rpt carrier.kicad_pcb
+tools/build_board.sh                     # placement, planes, hand routes, Freerouting, finish, DRC (~20 min)
+tools/build_board.sh noauto              # stop before the autorouter
+flatpak run --command=python3 org.kicad.KiCad tools/dump_pcb.py   # then:
+.venv/bin/python tools/view_pcb.py NAME [x0 y0 x1 y1] [--nets TEXT] [--labels]   # out/pcb/NAME.png
+.venv/bin/python tools/fit_plate.py      # mech/fit_plate.stl
 
 .venv/bin/python tools/heatsink.py       # mech/heatsink.step/.stl
 kicad-cli pcb export step --subst-models --force -o mech/carrier_board.step carrier.kicad_pcb
@@ -306,9 +316,21 @@ What each script owns:
   manufacturer / LCSC. Part UUIDs are derived from references, so reruns are
   byte-identical and the board stays linked to the schematic.
 - `gen_pcb.py` + `place.py`: board outline, 4-layer stackup, JLC design
-  rules and net classes (battery 2 mm, 5 V 1.5 mm, speakers 1 mm), and
-  placement. `place.py` holds the Pi position, the notch/slot geometry and
-  every block's layout, with parts found by Section field and nets.
+  rules, net classes and placement. `place.py` holds the Pi position, the
+  notch/slot geometry and every block's layout, with parts found by
+  Section field and nets.
+- `route.py`: everything that carries current or needs care, locked so the
+  autorouter works around it. In1 is solid GND; In2 is split into
+  +12V_PROT (protection, amp, buck input) and +5V (buck output, Pi, LDO,
+  clocks, fans). Top-layer pours for the battery path, VMID, buck VIN/PGND/SW
+  and output, amp PVDD and the Pi's 5 V pins. Hand-routed amp outputs (P legs
+  on top, M legs dropped to the bottom under the coils) and speaker lanes
+  (1 mm, nested so none cross). Every GND pad gets its own via to In1, and
+  +5V/+12V pads over their In2 region likewise. The LM74800's 0.5 mm pins
+  and a few tight nets are routed by `maze.py` (a small grid router).
+  Nothing copper within 3 mm of the outer edge.
+- `autoroute.py` exports to Freerouting (with keepouts guarding the pours)
+  and imports the result; `finish.py` maze-routes anything left open.
 - `heatsink.py`, `assembly.py`, `render3d.py`: mechanical.
 
 ## Verification so far
@@ -332,10 +354,9 @@ What each script owns:
    update `PI` in `tools/place.py` if it differs.
 2. Measure display thickness and the display-to-Pi standoff height (3D
    model only).
-3. Route the board, keeping copper 3 mm from the outer edges.
-4. Tidy silkscreen; add the harness pin table next to J1.
-5. Final review (renders, BOM, cost), then order: board + assembly + CNC
+3. Tidy silkscreen; add the harness pin table next to J1.
+4. Final review (renders, BOM, cost), then order: board + assembly + CNC
    heatsink from JLCPCB.
-6. On first power-up: confirm the react-carplay window class used for
+5. On first power-up: confirm the react-carplay window class used for
    steering-wheel keys, run learn mode, check amp start-up and fault
    handling on real hardware.

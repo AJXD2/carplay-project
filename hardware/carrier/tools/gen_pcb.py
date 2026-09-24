@@ -34,14 +34,17 @@ ORIGIN = (100.0, 100.0)               # top-left corner of the board on the shee
 
 # Net classes (mm). JLC 4-layer standard process: 0.09 mm min track/space,
 # 0.2 mm min drill; we stay well above it.
+# The current-carrying paths are copper pours and hand-placed tracks
+# (tools/route.py); these widths are for the autorouter's leftovers on those
+# nets (sense pins, bias pins, 1 nF snubbers), sized to fit the pin pitch.
 NETCLASSES = [
     # name, track, clearance, via dia, via drill, patterns
     ("Default", 0.2, 0.15, 0.6, 0.3, []),
-    ("Battery", 2.0, 0.3, 0.8, 0.4, ["+12V_BATT", "VMID", "+12V_PROT"]),
-    ("Rail5V", 1.5, 0.2, 0.8, 0.4, ["+5V"]),
-    ("Speaker", 1.0, 0.25, 0.8, 0.4, ["/SPK_*", "/AMP_FL*", "/AMP_FR*", "/AMP_RL*", "/AMP_RR*"]),
-    ("Switch", 1.0, 0.2, 0.6, 0.3, ["/SW_5V"]),
-    ("Rail3V3", 0.4, 0.15, 0.6, 0.3, ["+3V3"]),
+    ("Battery", 0.25, 0.2, 0.6, 0.3, ["/+12V_BATT", "/VMID", "+12V_PROT"]),
+    ("Rail5V", 0.4, 0.2, 0.6, 0.3, ["+5V"]),
+    ("Speaker", 0.4, 0.2, 0.8, 0.4, ["/SPK_*", "/AMP_FL*", "/AMP_FR*", "/AMP_RL*", "/AMP_RR*"]),
+    ("Switch", 0.4, 0.2, 0.6, 0.3, ["/SW_5V"]),
+    ("Rail3V3", 0.3, 0.15, 0.6, 0.3, ["+3V3"]),
 ]
 
 
@@ -81,11 +84,11 @@ def write_project():
     pro["net_settings"] = {"classes": classes, "meta": {"version": 5}, "net_colors": None,
                            "netclass_assignments": None, "netclass_patterns": patterns}
     pro.setdefault("board", {}).setdefault("design_settings", {})["rules"] = {
-        "min_clearance": 0.127, "min_track_width": 0.127, "min_via_diameter": 0.45,
+        "min_clearance": 0.127, "min_track_width": 0.15, "min_via_diameter": 0.45,
         "min_through_hole_diameter": 0.3, "min_via_annular_width": 0.1, "min_hole_clearance": 0.25,
         "min_hole_to_hole": 0.25, "min_copper_edge_clearance": 0.4, "min_silk_clearance": 0.0,
         "min_text_height": 0.8, "min_text_thickness": 0.12, "max_error": 0.005,
-        "min_microvia_diameter": 0.2, "min_microvia_drill": 0.1, "min_resolved_spokes": 2,
+        "min_microvia_diameter": 0.2, "min_microvia_drill": 0.1, "min_resolved_spokes": 1,
         "min_groove_width": 0.0, "min_connection": 0.0, "solder_mask_to_copper_clearance": 0.0,
         "use_height_for_length_calcs": True}
     with open(PRO, "w") as f:
@@ -116,6 +119,10 @@ def main():
     tree = export_netlist()
     board = pcbnew.BOARD()
     board.SetCopperLayerCount(4)
+    # inner layers are planes (In1 GND, In2 split +12V_PROT / +5V): marking
+    # them as power layers keeps the autorouter off them
+    for layer in (pcbnew.In1_Cu, pcbnew.In2_Cu):
+        board.SetLayerType(layer, pcbnew.LT_POWER)
     ds = board.GetDesignSettings()
     ds.SetBoardThickness(mm(1.6))
 
@@ -161,8 +168,8 @@ def main():
 
     outline(board)
     place.place_all(board, fps, ORIGIN, (BOARD_W, BOARD_H))
-    write_project()
     board.Save(PCB)
+    write_project()             # after Save, which writes the project file with defaults
     unplaced = [r for r, f in fps.items() if not place.is_placed(f)]
     print(f"wrote {os.path.relpath(PCB)}: {len(fps)} footprints, {len(nets)} nets, "
           f"{len(unplaced)} still in the parking area")

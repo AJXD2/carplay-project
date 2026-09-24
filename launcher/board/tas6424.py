@@ -6,8 +6,9 @@ oscillator that also drives MCLK (256 fs); SDIN1 and SDIN2 both carry the
 Pi's stereo pair, so channels 1/2 (front) and 3/4 (rear) play the same
 audio and the per-channel volume registers do fader and balance.
 
-Channel map (hardware/carrier/tools/gen_sch.py): CH1 FL, CH2 FR, CH3 RL,
-CH4 RR.
+Channel map (hardware/carrier/tools/gen_sch.py): CH1 RL, CH2 RR, CH3 FL,
+CH4 FR. Odd channels take the left I2S slot, even the right; the order
+keeps the speaker tracks from crossing on the board.
 """
 import logging
 import time
@@ -36,7 +37,7 @@ PLAY = 0x00                      # all four channels PLAY
 HIZ = 0x55
 MUTE_ALL = 0xAA
 
-CHANNELS = ("FL", "FR", "RL", "RR")
+CHANNELS = ("RL", "RR", "FL", "FR")           # amp channel 1..4
 
 
 def db_to_reg(db):
@@ -57,7 +58,9 @@ def fader_gains(fader=0.0, balance=0.0, trim_db=0.0):
     front, rear = side(-fader), side(fader)
     left, right = side(balance), side(-balance)
     out = {}
-    for ch, (fb, lr) in zip(CHANNELS, ((front, left), (front, right), (rear, left), (rear, right))):
+    for ch in CHANNELS:
+        fb = front if ch[0] == "F" else rear
+        lr = left if ch[1] == "L" else right
         out[ch] = None if fb is None or lr is None else trim_db + fb + lr
     return out
 
