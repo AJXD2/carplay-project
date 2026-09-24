@@ -547,7 +547,7 @@ def amplifier(x, y):
                                                ("48", "47", "45", "44"), ("54", "53", "51", "50")]):
         for bst, out, pol in [(bp, op, "+"), (bm, om, "-")]:
             b, o = u.pin(bst), u.pin(out)
-            cb = C("1uF", rot=90, fp=FP_C0805)
+            cb = C("1uF", rot=90)                  # 0603: fits the 0.635 mm pin pitch
             cb.move_pin_to("1", (b[0] + 5.08, b[1]))
             cb.place_prop("Reference", 7.62, 0)      # on the free BST row
             cb.place_prop("Value", 13.97, 0)
@@ -897,15 +897,20 @@ def misc(x, y):
     S.label(j.pin("1"), "UART_TX", (1, 0), color=COLORS["misc"])
     S.label(j.pin("2"), "UART_RX", (1, 0), color=COLORS["misc"])
     S.power(j.pin("3"), "GND")
-    holes = [("Pi", "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via")] * 4 + \
-            [("Heatsink", "MountingHole:MountingHole_3.2mm_M3_Pad_Via")] * 2
-    for i, (val, fp) in enumerate(holes):
-        h = S.part("Mechanical:MountingHole_Pad", ref("H"), val, (x + 38.1 + 10.16 * i, y + 38.1), footprint=fp,
-                   in_bom=False)
+    # Pi holes: plain, unplated, isolated (HAT mechanical spec: 2.75 mm drill,
+    # 6.2 mm keep-out). Heatsink screws: plated and grounded (SLOSE73A 12.1.1).
+    for i in range(4):
+        h = S.part("Mechanical:MountingHole", ref("H"), "Pi", (x + 38.1 + 10.16 * i, y + 38.1),
+                   footprint="MountingHole:MountingHole_2.7mm_M2.5", in_bom=False)
+        h.place_prop("Reference", 0, -7.62)
+        h.place_prop("Value", 0, -5.08)
+    for i in range(2):
+        h = S.part("Mechanical:MountingHole_Pad", ref("H"), "Heatsink", (x + 78.74 + 10.16 * i, y + 38.1),
+                   footprint="MountingHole:MountingHole_3.2mm_M3_Pad_Via", in_bom=False)
         h.place_prop("Reference", 0, -7.62)
         h.place_prop("Value", 0, -5.08)
         S.power(h.pin("1"), "GND")
-    S.text(x + 2.54, y + 50.8, "Pi holes and the amp heatsink screws bond the Pi, heatsink and board GND.",
+    S.text(x + 2.54, y + 50.8, "Pi holes are isolated per the HAT spec; the amp heatsink screws ground the heatsink.",
            size=1.27)
     S.text(x + 2.54, y + 53.34, "UART: 3.3 V, GPIO14/15 serial console. Header not fitted: solder one on if needed.", size=1.27)
 
@@ -986,22 +991,32 @@ def assign_parts():
         raise SystemExit("no part number for: " + ", ".join(missing))
 
 
+def section(name, fn, *args):
+    """Run a section and tag its parts with a hidden Section field, which
+    the PCB placement uses to find each block's parts."""
+    n = len(S.parts)
+    fn(*args)
+    for p in S.parts[n:]:
+        if not p.ref.startswith("#"):
+            p.fields["Section"] = name
+
+
 def main():
     # row 1
-    harness(15.24, 15.24)
-    input_protection(113.03, 15.24)
-    swc_adc(278.13, 15.24)
-    rtc_eeprom(415.29, 15.24)
+    section("harness", harness, 15.24, 15.24)
+    section("protection", input_protection, 113.03, 15.24)
+    section("swc", swc_adc, 278.13, 15.24)
+    section("rtc", rtc_eeprom, 415.29, 15.24)
     # row 2
-    pi_header(15.24, 134.62)
-    power_hold(113.03, 137.16)
-    buck(270.51, 132.08)
+    section("pi", pi_header, 15.24, 134.62)
+    section("hold", power_hold, 113.03, 137.16)
+    section("buck", buck, 270.51, 132.08)
     # row 3
-    misc(15.24, 236.22)
-    amplifier(113.03, 251.46)
-    output_filter(288.29, 226.06)
-    fans(420.37, 226.06)
-    clock_option(288.29, 320.04)
+    section("misc", misc, 15.24, 236.22)
+    section("amp", amplifier, 113.03, 251.46)
+    section("filter", output_filter, 288.29, 226.06)
+    section("fans", fans, 420.37, 226.06)
+    section("clock", clock_option, 288.29, 320.04)
     assign_parts()
     S.write(OUT)
     print("wrote", os.path.relpath(OUT))

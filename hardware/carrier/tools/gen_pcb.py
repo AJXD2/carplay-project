@@ -94,7 +94,14 @@ def write_project():
 
 def outline(board):
     x0, y0 = ORIGIN
-    pts = place.outline_points(x0, y0, BOARD_W, BOARD_H)
+    loops = [place.outline_points(x0, y0, BOARD_W, BOARD_H)]
+    for cx0, cy0, cx1, cy1 in place.cutouts():
+        loops.append([(x0 + cx0, y0 + cy0), (x0 + cx1, y0 + cy0), (x0 + cx1, y0 + cy1), (x0 + cx0, y0 + cy1)])
+    for pts in loops:
+        _loop(board, pts)
+
+
+def _loop(board, pts):
     for a, b in zip(pts, pts[1:] + pts[:1]):
         seg = pcbnew.PCB_SHAPE(board)
         seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
@@ -132,9 +139,12 @@ def main():
         sheet = c.find("sheetpath").get("tstamps")
         fp.SetPath(pcbnew.KIID_PATH(sheet + c.findtext("tstamps")))
         props = {p.get("name"): p.get("value") for p in c.iter("property")}
-        for k in ("LCSC", "MPN", "Manufacturer"):
+        for k in ("LCSC", "MPN", "Manufacturer", "Section"):
             if k in props:
                 fp.SetField(k, props[k])
+        for fld in fp.GetFields():
+            if fld.GetName() in ("LCSC", "MPN", "Manufacturer", "Section"):
+                fld.SetVisible(False)
         if "dnp" in props:
             fp.SetDNP(True)
         if "exclude_from_bom" in props:
