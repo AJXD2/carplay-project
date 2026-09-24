@@ -32,8 +32,8 @@ sys.modules.setdefault("pcbnew", types.ModuleType("pcbnew"))
 import heatsink  # noqa: E402
 import place  # noqa: E402
 
-DISPLAY_W, DISPLAY_H = 165.0, 103.0
-DISPLAY_T = 6.0          # glass + panel + driver PCB (assumed)
+DISPLAY_W, DISPLAY_H = 164.9, 102.0   # manufacturer drawing
+DISPLAY_T = 8.25         # glass + LCD + backlight + PCB (drawing; 12.25 incl. rear parts)
 PI_STANDOFF = 6.0        # display back to Pi underside (assumed)
 PI_T = 1.6
 HAT_GAP = 11.0           # Pi top to carrier underside: 2.5 mm header base + 8.5 mm socket

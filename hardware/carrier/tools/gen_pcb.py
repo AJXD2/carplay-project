@@ -29,7 +29,7 @@ LOCAL_FP = {"carrier": os.path.join(ROOT, "lib", "carrier.pretty")}
 sys.path.insert(0, HERE)
 import place  # noqa: E402
 
-BOARD_W, BOARD_H = 165.0, 103.0      # Hosyond 7" DSI display outline
+BOARD_W, BOARD_H = 164.9, 102.0      # Hosyond 7" DSI outline (manufacturer drawing)
 ORIGIN = (100.0, 100.0)               # top-left corner of the board on the sheet
 
 # Net classes (mm). JLC 4-layer standard process: 0.09 mm min track/space,

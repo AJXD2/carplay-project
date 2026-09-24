@@ -23,7 +23,7 @@ sys.path.insert(0, HERE)
 sys.modules.setdefault("pcbnew", types.ModuleType("pcbnew"))   # place.py only needs it for placing
 import place  # noqa: E402
 
-W, H = 165.0, 103.0
+W, H = 164.9, 102.0
 T = 1.6                       # same thickness as the board
 PI_HOLE, HS_HOLE = 2.9, 3.4
 ENGRAVE = 0.6

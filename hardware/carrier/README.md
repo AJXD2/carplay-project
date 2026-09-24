@@ -102,7 +102,11 @@ written as notes on the schematic next to each circuit.
 
 ## Mechanical
 
-**Display:** Hosyond 7" DSI, 165 x 103 mm. The board uses the same outline.
+**Display:** Hosyond 7" DSI, **164.9 x 102.0 mm, 12.25 mm thick** per the
+manufacturer's drawing (`datasheets/hosyond/`). The board uses the same
+outline. Its own four mounting holes sit 5 mm in from each corner (154.89 x
+91.92 mm apart): the enclosure screws into those, before the Pi and board go
+on (the board sits ~18 mm above the screen's back, clear of the screw heads).
 
 **Where the Pi sits on the screen.** First estimated from Hosyond's product
 photo (the Pi's 58 x 49 mm hole pattern set the scale), then **measured on
@@ -128,11 +132,15 @@ lined up.
 | Pi outline | x 36.65 to 121.65, y 31.6 to 87.6 |
 | Orientation | rotated 180°: GPIO header at the bottom, USB/Ethernet toward the right of the screen as seen from the front |
 
+The manufacturer's drawing then confirmed the Pi holes at 60.36 / 118.36
+mm from the screen's left edge and 35.19 / 84.19 mm from its top (within
+0.2 mm of the measurements), and set the final outline.
+
 How the correction is applied: the board is referenced to the Pi, so the
 Pi, every part, the notch and the cable slot stay where they are and only
 the outer outline moves (`OUTLINE_SHIFT` in `tools/place.py`). All copper was
-routed at least 3 mm from the outer edges for exactly this; after the
-1.35 mm shift the closest copper is 1.65 mm from the right edge.
+routed at least 3 mm from the outer edges for exactly this; with the final
+outline the edge margin is 2.5 mm.
 
 **Board shape.** The Pi is mid-screen, so its USB/Ethernet block (13.5 mm
 tall Ethernet jack, board sits 11 mm above the Pi) is ~30 mm in from the

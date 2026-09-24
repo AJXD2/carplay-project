@@ -26,8 +26,8 @@ sys.path.insert(0, HERE)
 import place  # noqa: E402
 
 OX, OY = 100.0, 100.0
-W, H = 165.0, 103.0
-EDGE = 3.0
+W, H = 164.9, 102.0
+EDGE = 2.5          # was 3.0 until the Pi position was measured; now a plain margin
 
 F, B, IN1, IN2 = pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu
 

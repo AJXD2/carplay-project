@@ -70,7 +70,10 @@ def pi_rect(r):
 # side 36.65, ribbon side 43.40, GPIO side 15.35, USB-C/HDMI side 31.45
 # (rounded down; sums 165.05 x 102.80). Against the photo estimate the
 # screen sits 1.35 mm further toward the ports; up/down agrees within 0.15.
-OUTLINE_SHIFT = (-1.35, 0.0)
+# Then the manufacturer's drawing (datasheets/hosyond, rear view): screen
+# 164.9 x 102.0, Pi holes 60.36 mm from its left edge and 35.19 mm from its
+# top. That confirms the measurements within 0.2 mm and sets the outline.
+OUTLINE_SHIFT = (58.8 - 60.36, 35.1 - 35.19)
 
 
 def outline_points(x0, y0, w, h):
