@@ -12,7 +12,11 @@ dtoverlay=gpio-poweroff,gpiopin=26,active_low=1
 # DS3231 RTC on I2C-1 (0x68): the clock survives power off
 dtoverlay=i2c-rtc,ds3231
 
-# Audio: Pi I2S as clock consumer, 48 kHz stereo (see carrier-audio-overlay.dts)
+# Serial console on the board's debug header J3 (GPIO14/15, 115200, 3.3 V)
+enable_uart=1
+
+# Audio: Pi I2S as clock consumer, 48 kHz stereo out to the amp, mic in from
+# the PCM1808 on GPIO20 (see carrier-audio-overlay.dts)
 dtoverlay=carrier-audio
 
 # Fan PWM on GPIO12/13 (pwmchip0 channels 0/1)

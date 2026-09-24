@@ -91,6 +91,11 @@ TEXTS = [
     ("NO FIDDLING WHILE DRIVING", (88.0, 50.0), 2.2, 0, True),
     ("2007 4RUNNER  /  PI 4  /  4 x 25 W CLASS D", (88.0, 55.0), 1.3, 0, True),
     ("REV A  2026-09", (88.0, 58.5), 1.3, 0, True),
+    # status LED tags, under D-LEDs placed by place.py (x 57.5 / 61.5 / 65.5)
+    ("12V", (57.5, 98.4), 0.8, 0, False),
+    ("5V", (61.5, 98.4), 0.8, 0, False),
+    ("PI", (65.5, 98.4), 0.8, 0, False),
+    ("MIC", (154.5, 89.6), 1.0, 0, False),
 ]
 
 

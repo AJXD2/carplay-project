@@ -15,6 +15,7 @@ if [ "$1" != noauto ]; then
         --gui.enabled=false > out/route/freerouting.log 2>&1
     tail -3 out/route/freerouting.log
     $KPY tools/autoroute.py import 2>&1 | grep -v Warn | tail -1
+    cp carrier.kicad_pcb out/route/imported.kicad_pcb
 fi
 kicad-cli pcb drc --schematic-parity --format json -o out/drc.json carrier.kicad_pcb > /dev/null
 if [ "$1" != noauto ]; then

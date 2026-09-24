@@ -45,6 +45,8 @@ is split into boxed sections. The same section names tag every part
 | Amplifier | TAS6424E-Q1 | 4 x BTL, about 25 W/ch into 4 Ω at 14.4 V, 2.1 MHz switching, I2C controlled (0x6A) |
 | Output filters | 8x 3.3 µH + 1 µF + 1 nF | Reconstruction filter per speaker leg (TI reference values) |
 | Audio clocks | 12.288 MHz oscillator + PCM1808-Q1 | The board is the audio clock master (see decisions) |
+| Mic input | 3.5 mm jack J4 (PJ-320D) into the PCM1808 | Electret car mic for calls and Siri: bias from 3.3 V, ESD and RF filtering at the jack, the PCM1808's ADC sends it to the Pi on GPIO20. Mic on the tip; ring and sleeve grounded |
+| Status LEDs | 3 red 0603 (D8-D10), tagged 12V / 5V / PI | Which power stage is alive: protected 12 V, the 5 V rail, and the Pi holding the board on |
 | Steering wheel + battery ADC | ADS1115 (0x48) | Two ladder inputs (1k pull-ups, ESD, RC filter), battery voltage on AIN2 |
 | RTC + ID EEPROM | DS3231SN + CR2032 (0x68), CAT24C32 (0x50) | Clock through power-off; HAT ID per the Raspberry Pi HAT design guide |
 | Pi | J2, 2x20 socket on the underside | Mates with the Pi's header |
@@ -227,7 +229,8 @@ Blue wires (power antenna, amp turn-on) are not used.
 | 36, 7 | GPIO16/4 | FAN1/2_TACH | Tach, 2 pulses/rev |
 | 11 | GPIO17 | ~ACC_ON | Key on (active low) |
 | 13 | GPIO27 | ~LIGHTS_ON | Headlights (active low, may be PWM-dimmed) |
-| 38 | GPIO20 | ~REVERSE | Reverse gear (active low) |
+| 38 | GPIO20 | I2S_DIN | Mic audio from the PCM1808, **input** |
+| 26 | GPIO7 | ~REVERSE | Reverse gear (active low) |
 | 37 | GPIO26 | PI_HOLD | Keeps the board powered while high |
 | 15, 16 | GPIO22/23 | ~AMP_STBY/~AMP_MUTE | Amp control |
 | 18, 22 | GPIO24/25 | ~AMP_FAULT/~AMP_WARN | Amp status (open drain) |
@@ -359,4 +362,5 @@ What each script owns:
    heatsink from JLCPCB.
 5. On first power-up: confirm the react-carplay window class used for
    steering-wheel keys, run learn mode, check amp start-up and fault
-   handling on real hardware.
+   handling on real hardware, and check the mic capture path (the overlay
+   puts two dummy codecs on one I2S link; set mic gain in software).

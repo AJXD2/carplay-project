@@ -167,10 +167,19 @@ def rect(x0, y0, x1, y1):
 
 def edge_keepouts():
     e = EDGE
-    keepout(rect(-1, -1, W + 1, e), "edge top")
-    keepout(rect(-1, H - e, W + 1, H + 1), "edge bottom")
-    keepout(rect(-1, -1, e, H + 1), "edge left")
-    keepout(rect(W - e, -1, W + 1, H + 1), "edge right")
+    sx, sy = place.OUTLINE_SHIFT
+    l, t, r, b = sx, sy, W + sx, H + sy
+    keepout(rect(l - 1, t - 1, r + 1, t + e), "edge top")
+    keepout(rect(l - 1, b - e, r + 1, b + 1), "edge bottom")
+    keepout(rect(l - 1, t - 1, l + e, b + 1), "edge left")
+    keepout(rect(r - e, t - 1, r + 1, b + 1), "edge right")
+    # the autorouter does not keep its distance from inner cut-outs: a 0.5 mm
+    # band around the display-cable slot and along the notch
+    g = 0.5
+    for x0, y0, x1, y1 in place.cutouts():
+        keepout(rect(x0 - g, y0 - g, x1 + g, y1 + g), "slot band")
+    nx0, ny0, nx1, ny1 = place.pi_rect(place.PORT_BLOCK)
+    keepout(rect(-1, ny0 - g, nx1 + g, ny1 + g), "notch band")
 
 
 # In2 split. +12V_PROT: a band under the protection and the harness side,

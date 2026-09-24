@@ -62,16 +62,25 @@ def pi_rect(r):
     return min(xs), min(ys), max(xs), max(ys)
 
 
+# Measured correction: where the display outline really sits relative to the
+# Pi, as a shift of the outer edge in mm (+x = right, +y = down, top view).
+# Everything else (Pi, parts, notch, slot) stays put; copper keeps 3 mm from
+# the edge, so shifts up to about 3 mm need no rerouting.
+OUTLINE_SHIFT = (0.0, 0.0)
+
+
 def outline_points(x0, y0, w, h):
     """Board edge: the display outline, minus a notch that runs from the
     Pi's USB/Ethernet block out to the edge the ports face, so the tall
     jacks clear the board and the cables can reach them."""
     nx0, ny0, nx1, ny1 = pi_rect(PORT_BLOCK)
+    sx, sy = OUTLINE_SHIFT
+    l, t, r, b = sx, sy, w + sx, h + sy
     facing = {0: "right", 90: "up", 180: "left", 270: "down"}[PI["rot"] % 360]
     if facing == "left":
-        pts = [(0, 0), (w, 0), (w, h), (0, h), (0, ny1), (nx1, ny1), (nx1, ny0), (0, ny0)]
+        pts = [(l, t), (r, t), (r, b), (l, b), (l, ny1), (nx1, ny1), (nx1, ny0), (l, ny0)]
     elif facing == "right":
-        pts = [(0, 0), (w, 0), (w, ny0), (nx0, ny0), (nx0, ny1), (w, ny1), (w, h), (0, h)]
+        pts = [(l, t), (r, t), (r, ny0), (nx0, ny0), (nx0, ny1), (r, ny1), (r, b), (l, b)]
     else:
         raise SystemExit("notch for a rotated Pi not written yet")
     return [(x0 + x, y0 + y) for x, y in pts]
@@ -418,6 +427,21 @@ def place_small(fps, ox, oy):
 
     # debug UART (not fitted) on the bottom edge
     put(fps["J3"], X(52.0), Y(92.5))
+
+    # mic jack on the right edge beside the PCM1808 (plug enters from the
+    # side), its bias/filter parts in the strip between them
+    mic = section(fps, "mic")
+    put(one(mic, "MIC"), X(154.5), Y(96.0), 180)
+    pack(find(mic, n=0), X(126.0), Y(93.6), X(147.5))
+
+    # status LEDs next to the debug header: 12V, 5V, PI HOLD, left to right
+    leds = section(fps, "leds")
+    for i, net in enumerate(("+12V_PROT", "+5V", "PI_HOLD")):
+        r = next(f for f in find(leds, n=0) if f.GetValue() != "RED" and has(f, net))
+        mid = nets_of(r) - {net}
+        d = next(f for f in find(leds, n=0) if f.GetValue() == "RED" and nets_of(f) & mid)
+        put(r, X(57.5 + 4.0 * i), Y(92.8), 90)
+        put(d, X(57.5 + 4.0 * i), Y(96.0), 90)
 
 
 def park(fps, origin, size):

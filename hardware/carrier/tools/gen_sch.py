@@ -431,9 +431,9 @@ PI_GPIO = {
     "11": ("~{ACC_ON}", "ctl"), "12": ("I2S_BCLK", "i2s"), "35": ("I2S_FSYNC", "i2s"),
     "40": ("I2S_DOUT", "i2s"), "15": ("~{AMP_STBY}", "ctl"), "16": ("~{AMP_MUTE}", "ctl"),
     "18": ("~{AMP_FAULT}", "ctl"), "22": ("~{AMP_WARN}", "ctl"), "37": ("PI_HOLD", "ctl"),
-    "13": ("~{LIGHTS_ON}", "ctl"), "38": ("~{REVERSE}", "ctl"),
+    "13": ("~{LIGHTS_ON}", "ctl"), "26": ("~{REVERSE}", "ctl"), "38": ("I2S_DIN", "i2s"),
 }
-PI_UNUSED = ["26", "24", "21", "19", "23"]   # SPI0 (GPIO7-11)
+PI_UNUSED = ["24", "21", "19", "23"]   # SPI0 (GPIO8-11); GPIO7 carries ~REVERSE
 
 
 def pi_header(x, y):
@@ -823,8 +823,15 @@ def audio_clock(x, y):
     S.power((tx, md0[1] - 5.08), "+3V3")
     S.wire(fmt, (fmt[0] - 2.54, fmt[1]))
     S.power((fmt[0] - 2.54, fmt[1]), "GND")
-    for p in ("13", "14", "9"):
-        S.no_connect(u.pin(p))
+    lbl(u, "13", "MIC_IN", "i2s")               # VINL: the mic (section "mic")
+    S.no_connect(u.pin("14"))                   # VINR unused
+    dout = u.pin("9")
+    rd = R("33R", rot=90)
+    rd.move_pin_to("1", (dout[0] + 5.08, dout[1]))
+    rd.place_prop("Reference", 0, -1.905)
+    rd.hide_value = True
+    S.wire(dout, rd.pin("1"))
+    S.label(rd.pin("2"), "I2S_DIN", (1, 0), color=i2s, stub=5.08)
     # BCK / LRCK out through 33R to the Pi and the amp
     for pin, net in (("8", "I2S_BCLK"), ("7", "I2S_FSYNC")):
         pp = u.pin(pin)
@@ -858,8 +865,87 @@ def audio_clock(x, y):
     S.power(u.pin("2"), "GND")
     S.power(u.pin("5"), "GND")
     S.text(x + 2.54, y + 76.2, "Pi I2S = clock consumer (slave). MCLK 256 fs, BCK 64 fs, LRCK 48 kHz, one oscillator. "
-           "PCM1808 ADC unused.", size=1.27)
+           "PCM1808 ADC: mic on VINL, DOUT to the Pi.", size=1.27)
     S.text(x + 2.54, y + 78.74, "MD0/MD1 must be set before power-up (tied high). FMT low = I2S.", size=1.27)
+
+
+# -------------------------------------------------------------------- mic ---
+
+def mic(x, y):
+    """Electret car mic on a 3.5 mm jack (mic on the tip, as hands-free kits
+    wire it; ring and sleeve grounded so 2- and 3-pole plugs both work).
+    Bias from +3V3 through a 1k + 10 uF filter and 2.2k, ESD diode and 1 nF
+    RF shunt at the jack, 1 uF into the PCM1808's VINL (PCM1808-Q1
+    datasheet: AC-coupled single-ended input). Gain is applied in software."""
+    a = COLORS["i2s"]
+    S.box(x, y, x + 132.08, y + 50.8, "MIC INPUT: electret, 3.5 mm jack -> PCM1808", a)
+    x0, y0 = x + 12.7, y + 33.02
+    S.label((x0, y0), "MIC_T", (-1, 0), color=a, stub=0)
+    n, m, e = x0 + 7.62, x0 + 15.24, x0 + 35.56
+    rb = R("2.2k")
+    rb.move_pin_to("2", (n, y0))
+    top = rb.pin("1")
+    b = (top[0], top[1] - 5.08)
+    S.wire(top, b, (b[0] + 7.62, b[1]))
+    S.junction(b)
+    shunt(C("10uF", fp=FP_C0805), (b[0] + 7.62, b[1]))
+    rf = R("1k")
+    rf.move_pin_to("2", b)
+    S.power(rf.pin("1"), "+3V3")
+    esd = S.part("Device:D_TVS", ref("D"), "H15VND3B", (0, 0), rot=90, footprint="Diode_SMD:D_SOD-323")
+    esd.move_pin_to("2", (n, y0))
+    esd.place_prop("Reference", 2.54, -1.27, "left", rot=0)
+    esd.place_prop("Value", 2.54, 1.27, "left", rot=0)
+    S.power(esd.pin("1"), "GND")
+    cc = C("1uF", rot=90)
+    cc.move_pin_to("1", (x0 + 22.86, y0))
+    cc.place_prop("Reference", 0, -2.54)
+    cc.place_prop("Value", 0, 2.54)
+    S.wire((x0, y0), (n, y0), (m, y0), cc.pin("1"), color=a)
+    S.junction((n, y0))
+    S.junction((m, y0))
+    shunt(C("1nF"), (m, y0))
+    S.wire(cc.pin("2"), (e, y0), color=a)
+    S.label((e, y0), "MIC_IN", (1, 0), color=a, stub=0)
+    j = S.part("Connector_Audio:AudioJack4", ref("J"), "MIC", (x + 110.49, y + 27.94), rot=180,
+               footprint="Connector_Audio:Jack_3.5mm_PJ320D_Horizontal")
+    j.place_prop("Reference", 0, -10.16)
+    j.place_prop("Value", 0, 10.16)
+    lbl(j, "T", "MIC_T", "i2s")
+    ends = {p: (j.pin(p)[0] - 5.08, j.pin(p)[1]) for p in ("R1", "R2", "S")}
+    for p, e2 in ends.items():
+        S.wire(j.pin(p), e2)
+    ys = sorted(e2[1] for e2 in ends.values())
+    S.wire((ends["R1"][0], ys[0]), (ends["R1"][0], ys[-1]))
+    S.junction((ends["R1"][0], ys[1]))
+    S.power((ends["R1"][0], ys[-1]), "GND")
+    S.text(x + 2.54, y + 45.72, "Mic on the tip; ring + sleeve to GND. ~1.2 V bias at 0.5 mA. PCM1808 has no PGA: "
+           "gain in software.", size=1.27)
+    S.text(x + 2.54, y + 48.26, "Keep MIC_T / MIC_IN short and over solid GND, away from the amp outputs.", size=1.27)
+
+
+# ------------------------------------------------------------------ leds ---
+
+def leds(x, y):
+    """Three debug LEDs: which power stage is alive (12 V after the
+    protection, 5 V, and the Pi holding the board on). Red is the only
+    basic-library 0603 LED at JLC, so all three are red, labelled."""
+    S.box(x, y, x + 132.08, y + 40.64, "STATUS LEDS (12V IN / 5V / PI HOLD)", COLORS["misc"])
+    for i, (net, rv, tag) in enumerate((("+12V_PROT", "10k", "12V ~1 mA"), ("+5V", "1k", "5V ~3 mA"),
+                                        ("PI_HOLD", "1k", "PI HOLD ~1 mA"))):
+        xx, yy = x + 22.86 + 38.1 * i, y + 12.7
+        r = R(rv)
+        r.move_pin_to("1", (xx, yy))
+        if net.startswith("+"):
+            S.power((xx, yy), net)
+        else:
+            S.label((xx, yy), net, (0, -1), color=COLORS["ctl"], stub=2.54)
+        led = S.part("Device:LED", ref("D"), "RED", (0, 0), rot=90, footprint="LED_SMD:LED_0603_1608Metric")
+        led.move_pin_to("2", r.pin("2"))
+        led.place_prop("Reference", 3.81, -1.27, "left", rot=0)
+        led.place_prop("Value", 3.81, 1.27, "left", rot=0)
+        S.power(led.pin("1"), "GND")
+        S.text(xx - 5.08, y + 35.56, tag, size=1.27)
 
 
 # ------------------------------------------------------------------- fans ---
@@ -982,6 +1068,9 @@ PARTS = {
     ("1N4148W", ""): ("1N4148W", "ST(Semtech)", "C81598"),
     ("BZT52C15", ""): ("BZT52C15", "hongjiacheng", "C19077412"),
     ("H15VND3B", ""): ("H15VND3B", "hongjiacheng", "C20615813"),
+    ("2.2k", "R_0603"): ("0603WAF2201T5E", UR, "C4190"),
+    ("RED", "LED_0603"): ("KT-0603R", "Hubei KENTO Elec", "C2286"),
+    ("MIC", "Jack_3.5mm_PJ320D"): ("PJ-320D", "SHOU HAN", "C431535"),
     ("SMBJ33CA", ""): ("SMBJ33CA", "hongjiacheng", "C19077587"),
     ("MMBT3904", ""): ("MMBT3904", "Changjing", "C20526"),
     ("2N7002", ""): ("2N7002", "Changjing", "C8545"),
@@ -1044,6 +1133,8 @@ def main():
     section("filter", output_filter, 288.29, 226.06)
     section("fans", fans, 420.37, 226.06)
     section("clock", audio_clock, 288.29, 320.04)
+    section("mic", mic, 420.37, 284.48)
+    section("leds", leds, 420.37, 345.44)
     assign_parts()
     S.write(OUT)
     print("wrote", os.path.relpath(OUT))

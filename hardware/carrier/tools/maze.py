@@ -85,19 +85,43 @@ def route(board, netname, a, b, ox, oy, width=0.25, margin=6.0, layers=(pcbnew.F
     def cell(p):
         return round(p[0] / GRID), round(p[1] / GRID)
 
-    sa, sb = cell(a), cell(b)
     starts = start_layers or layers
     ends = set(end_layers or layers)
+
+    def joinable(p, c, layer):
+        """The straight stub from exact point p to grid cell c must clear
+        everything too (the grid search only checks cells)."""
+        cx, cy = c[0] * GRID, c[1] * GRID
+        d = math.hypot(cx - p[0], cy - p[1])
+        n = max(1, int(d / 0.05))
+        return all(obs.free(p[0] + (cx - p[0]) * k / n, p[1] + (cy - p[1]) * k / n, layer, r) or k <= 1
+                   for k in range(n + 1))
+
+    def near_cells(p):
+        c = cell(p)
+        return sorted(((c[0] + i, c[1] + j) for i in (-1, 0, 1) for j in (-1, 0, 1)),
+                      key=lambda q: math.hypot(q[0] * GRID - p[0], q[1] * GRID - p[1]))
+
+    sa = cell(a)
+    goal = {}
+    for layer in ends:
+        for c in near_cells(b):
+            if joinable(b, c, layer):
+                goal[(c[0], c[1], layer)] = True
+    sb = next((c[:2] for c in goal), cell(b))
     openq, came, cost = [], {}, {}
     for layer in starts:
-        s = (sa[0], sa[1], layer)
-        cost[s] = 0.0
-        heapq.heappush(openq, (0.0, s))
+        for c in near_cells(a):
+            if joinable(a, c, layer):
+                s = (c[0], c[1], layer)
+                cost[s] = 0.0
+                heapq.heappush(openq, (0.0, s))
+        sa = next((q[:2] for q in cost), sa)
     steps = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]
     while openq:
         _, cur = heapq.heappop(openq)
         cx, cy, cl = cur
-        if (cx, cy) == sb and cl in ends:
+        if cur in goal:
             path = [cur]
             while path[-1] in came:
                 path.append(came[path[-1]])

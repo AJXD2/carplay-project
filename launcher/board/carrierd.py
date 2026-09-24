@@ -41,7 +41,7 @@ LAUNCHER = "http://127.0.0.1:8734"
 API_PORT = 8735
 
 # BCM GPIO numbers (hardware/carrier/tools/gen_sch.py PI_GPIO)
-GPIO = dict(acc=17, lights=27, reverse=20, amp_stby=22, amp_mute=23, amp_fault=24,
+GPIO = dict(acc=17, lights=27, reverse=7, amp_stby=22, amp_mute=23, amp_fault=24,
             amp_warn=25, adc_alert=6, fan1_tach=16, fan2_tach=4)
 PWM_CH = dict(fan1=0, fan2=1)                         # GPIO12 / GPIO13
 
