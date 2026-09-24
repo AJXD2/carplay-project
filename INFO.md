@@ -445,6 +445,13 @@ reason, the launcher's process management will fight it again.
 
 ## Audio
 
+(Planned: the carrier board in `hardware/carrier/` replaces the USB
+adapter with I2S straight into a 4-channel amp. The Pi then runs at a
+fixed 48 kHz as I2S clock consumer; details in
+[hardware/carrier/README.md](hardware/carrier/README.md) and
+[launcher/board/README.md](launcher/board/README.md). Everything below
+describes the current USB setup.)
+
 Everything CarPlay plays (music, calls, Siri, navigation) arrives from the
 phone over Wi-Fi to the dongle, then over USB to react-carplay, which plays
 it through PulseAudio to the Unitek USB adapter (`card "Device"`). The mic
@@ -511,9 +518,11 @@ starts at whatever time the image last held (currently Mar 31) until
 `systemd-timesyncd` syncs over the network, which in the car may never
 happen. The launcher shows `--:--` / "Clock not set" until
 `timedatectl` reports `NTPSynchronized=yes`; CarPlay's own status bar
-always shows the phone's time. Real fix: a DS3231 I2C RTC module (GPIO pins
-1/3/5/9) plus `dtoverlay=i2c-rtc,ds3231` in `/boot/firmware/config.txt`,
-seeded once with `sudo hwclock -w` while online.
+always shows the phone's time. Real fix: a DS3231 RTC plus
+`dtoverlay=i2c-rtc,ds3231` in `/boot/firmware/config.txt`, seeded once
+with `sudo hwclock -w` while online. The carrier board
+(`hardware/carrier/`) has one on board with a CR2032, so this goes away
+once it is installed.
 
 ## Security notes
 

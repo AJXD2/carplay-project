@@ -5,7 +5,7 @@
     (property "Footprint" "Package_SO:SSOP-56_7.5x18.5mm_P0.635mm" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tas6424e-q1.pdf" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "Description" "45-W 2.1-MHz digital-input 4-channel automotive class-D amplifier, HSSOP-56 (DKQ, thermal pad on top: needs a GND heatsink)" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
-    (property "ki_keywords" "class-D amplifier audio automotive I2S TDM" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
+    (property "ki_keywords" "class-D amplifier audio automotive I2S" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "ki_fp_filters" "SSOP-56*" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     
     (symbol "TAS6424E-Q1_0_1"

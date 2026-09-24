@@ -36,6 +36,12 @@ CarPlay, one tile among the others:
 - **`pi-monitor/`**: an on-screen alert system (via `dunst`) for CPU
   temp warnings and IP-address notifications, since CarPlay runs
   fullscreen with no window chrome to show that otherwise.
+- **`hardware/carrier/`**: the in-truck board the Pi mounts on (power
+  from the car, 4-channel amp, steering-wheel buttons, RTC, fans). Design
+  in progress; see its [README](hardware/carrier/README.md).
+- **`launcher/board/`**: `carrierd`, the service that runs that board
+  (amp, wheel buttons, key-off shutdown, fans). Not deployed until the
+  board exists.
 
 ## Quick start
 

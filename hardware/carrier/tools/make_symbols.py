@@ -119,7 +119,7 @@ SYMBOLS.append(symbol(
     "Package_SO:SSOP-56_7.5x18.5mm_P0.635mm",
     "https://www.ti.com/lit/ds/symlink/tas6424e-q1.pdf",
     "45-W 2.1-MHz digital-input 4-channel automotive class-D amplifier, HSSOP-56 (DKQ, thermal pad on top: needs a GND heatsink)",
-    "class-D amplifier audio automotive I2S TDM",
+    "class-D amplifier audio automotive I2S",
     # SDIN2 / I2C_ADDRx tie to GND: two gaps after each group leave room for
     # the ground symbol. Analog bypass pins sit two gaps apart so their caps can
     # lie horizontally between pin and return bus. AREF / AVSS are *local*

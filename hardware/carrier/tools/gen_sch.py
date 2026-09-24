@@ -476,7 +476,7 @@ def amplifier(x, y):
     """TAS6424E-Q1 after SLOSE73A fig 10-2 (4-ch BTL head unit)."""
     red, i2s, ctl = COLORS["power12"], COLORS["i2s"], COLORS["ctl"]
     spk = COLORS["spk"]
-    S.box(x, y, x + 170.18, y + 154.94, "AMPLIFIER: TAS6424E-Q1, 4 x BTL, TDM from the Pi", spk)
+    S.box(x, y, x + 170.18, y + 154.94, "AMPLIFIER: TAS6424E-Q1, 4 x BTL, I2S from the Pi", spk)
     ux, uy = x + 111.76, y + 78.74
     u = S.part("carrier:TAS6424E-Q1", ref("U"), "TAS6424E-Q1", (ux, uy),
                footprint="Package_SO:SSOP-56_7.5x18.5mm_P0.635mm")
@@ -595,7 +595,7 @@ def output_filter(x, y):
             S.label((end, y0), f"SPK_{ch}{pol}", (1, 0), color=spk, stub=0)
     S.text(x + 2.54, y + 83.82, "Inductors: 3.3 uH, Isat >= 6 A, DCR <= 50 mR (SLOSE73A 10.2.1.2.4). "
            "1 uF 50 V X7R, 1 nF C0G.", size=1.27)
-    S.text(x + 2.54, y + 86.36, "Channel 1..4 = FL, FR, RL, RR (the Pi's TDM slot order; remap in software).",
+    S.text(x + 2.54, y + 86.36, "Channel 1..4 = FL, FR, RL, RR. SDIN1 = SDIN2: rear plays the front stereo; fader via per-channel volume.",
            size=1.27)
 
 

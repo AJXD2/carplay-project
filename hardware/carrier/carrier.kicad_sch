@@ -3800,7 +3800,7 @@
     (property "Footprint" "Package_SO:SSOP-56_7.5x18.5mm_P0.635mm" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "Datasheet" "https://www.ti.com/lit/ds/symlink/tas6424e-q1.pdf" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "Description" "45-W 2.1-MHz digital-input 4-channel automotive class-D amplifier, HSSOP-56 (DKQ, thermal pad on top: needs a GND heatsink)" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
-    (property "ki_keywords" "class-D amplifier audio automotive I2S TDM" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
+    (property "ki_keywords" "class-D amplifier audio automotive I2S" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "ki_fp_filters" "SSOP-56*" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     
     (symbol "TAS6424E-Q1_0_1"
@@ -5575,7 +5575,7 @@
 (text "Pi holes are isolated per the HAT spec; the amp heatsink screws ground the heatsink." (exclude_from_sim no) (at 17.78 287.02 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "226688d0-b339-5fc4-87a9-b48c8b2cdf2e"))
 (text "UART: 3.3 V, GPIO14/15 serial console. Header not fitted: solder one on if needed." (exclude_from_sim no) (at 17.78 289.56 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "9dd8083f-2c03-51db-b55b-8b1e4699eb87"))
 (rectangle (start 113.03 251.46) (end 283.21000000000004 406.4) (stroke (width 0.3) (type dash) (color 0 140 110 1)) (fill (type color) (color 0 140 110 0.04)) (uuid "b38b4ccb-d496-5f65-87a6-b62dddde29e2"))
-(text "AMPLIFIER: TAS6424E-Q1, 4 x BTL, TDM from the Pi" (exclude_from_sim no) (at 115.57000000000001 255.27 0) (effects (font (size 2.54 2.54) (bold yes) (color 0 140 110 1)) (justify left bottom)) (uuid "10008384-5493-5583-8e9f-6797d20c096a"))
+(text "AMPLIFIER: TAS6424E-Q1, 4 x BTL, I2S from the Pi" (exclude_from_sim no) (at 115.57000000000001 255.27 0) (effects (font (size 2.54 2.54) (bold yes) (color 0 140 110 1)) (justify left bottom)) (uuid "10008384-5493-5583-8e9f-6797d20c096a"))
 (wire (pts (xy 128.27 269.24) (xy 135.89 269.24)) (stroke (width 0) (type solid) (color 200 60 30 1)) (uuid "18ed13b5-9321-565f-8dcb-6aaf1b4edd06"))
 (wire (pts (xy 135.89 269.24) (xy 146.05 269.24)) (stroke (width 0) (type solid) (color 200 60 30 1)) (uuid "13795bf8-f681-5805-b0f5-9a8d7e6b5848"))
 (wire (pts (xy 146.05 269.24) (xy 156.21 269.24)) (stroke (width 0) (type solid) (color 200 60 30 1)) (uuid "0b4f73aa-9659-5b5c-b8fd-cee8a2632306"))
@@ -5763,7 +5763,7 @@
 (junction (at 389.89 294.64) (diameter 0) (color 0 0 0 0) (uuid "bd8a2a94-27be-5c6f-ab4e-7c17f761fb4d"))
 (label "SPK_RR-" (at 397.51 294.64 0) (effects (font (size 1.27 1.27) (color 0 140 110 1)) (justify left bottom)) (uuid "fe665c38-1cb0-557a-9c4d-52e64e1846d4"))
 (text "Inductors: 3.3 uH, Isat >= 6 A, DCR <= 50 mR (SLOSE73A 10.2.1.2.4). 1 uF 50 V X7R, 1 nF C0G." (exclude_from_sim no) (at 290.83000000000004 309.88 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "f456f342-da8d-501e-9323-5eddae49cdb0"))
-(text "Channel 1..4 = FL, FR, RL, RR (the Pi's TDM slot order; remap in software)." (exclude_from_sim no) (at 290.83000000000004 312.42 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "185bf869-9fac-5fbd-8409-2a3d8f41853a"))
+(text "Channel 1..4 = FL, FR, RL, RR. SDIN1 = SDIN2: rear plays the front stereo; fader via per-channel volume." (exclude_from_sim no) (at 290.83000000000004 312.42 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "185bf869-9fac-5fbd-8409-2a3d8f41853a"))
 (rectangle (start 420.37 226.06) (end 552.45 276.86) (stroke (width 0.3) (type dash) (color 60 140 60 1)) (fill (type color) (color 60 140 60 0.04)) (uuid "50727fef-9fb8-515e-a129-e18ce50df00e"))
 (text "FANS (2 x Noctua 5 V PWM)" (exclude_from_sim no) (at 422.91 229.87 0) (effects (font (size 2.54 2.54) (bold yes) (color 60 140 60 1)) (justify left bottom)) (uuid "010c73e7-5fa3-5dc6-858e-8358a2d7c3b6"))
 (wire (pts (xy 463.55 243.84) (xy 458.47 243.84)) (stroke (width 0) (type solid) (color 60 140 60 1)) (uuid "69379c63-70ab-5ca3-a03a-dbb7ae266014"))
