@@ -82,17 +82,29 @@ def set_model(fp, fpid):
 
 
 CREDIT = ("@ajxd2  Anthony Kovach", (90.0, 96.3), 2.0)     # top silkscreen, bottom strip
+# (text, (x, y) board mm, height mm, rotation, bottom side)
+TEXTS = [
+    CREDIT + (0, False),
+    # name and revision up the clear strip between the port notch and the Pi's holes
+    ("4RUNNER CARPLAY CARRIER  REV A", (58.3, 59.6), 1.4, 90, False),
+    # facing the Pi, seen only with the board off
+    ("NO FIDDLING WHILE DRIVING", (88.0, 50.0), 2.2, 0, True),
+    ("2007 4RUNNER  /  PI 4  /  4 x 25 W CLASS D", (88.0, 55.0), 1.3, 0, True),
+    ("REV A  2026-09", (88.0, 58.5), 1.3, 0, True),
+]
 
 
 def credit(board):
-    text, (x, y), size = CREDIT
-    t = pcbnew.PCB_TEXT(board)
-    t.SetText(text)
-    t.SetLayer(pcbnew.F_SilkS)
-    t.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(ORIGIN[0] + x), pcbnew.FromMM(ORIGIN[1] + y)))
-    t.SetTextSize(pcbnew.VECTOR2I(pcbnew.FromMM(size), pcbnew.FromMM(size)))
-    t.SetTextThickness(pcbnew.FromMM(0.3))
-    board.Add(t)
+    for text, (x, y), size, rot, bottom in TEXTS:
+        t = pcbnew.PCB_TEXT(board)
+        t.SetText(text)
+        t.SetLayer(pcbnew.B_SilkS if bottom else pcbnew.F_SilkS)
+        t.SetMirrored(bottom)
+        t.SetTextAngleDegrees(rot)
+        t.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(ORIGIN[0] + x), pcbnew.FromMM(ORIGIN[1] + y)))
+        t.SetTextSize(pcbnew.VECTOR2I(pcbnew.FromMM(size), pcbnew.FromMM(size)))
+        t.SetTextThickness(pcbnew.FromMM(0.3 if size >= 2 else 0.22))
+        board.Add(t)
 
 
 def load_fp(fpid):
