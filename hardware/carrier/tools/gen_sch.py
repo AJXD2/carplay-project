@@ -514,7 +514,7 @@ def amplifier(x, y):
                           ("21", "I2C_SDA", COLORS["i2c"]), ("24", "~{AMP_STBY}", ctl),
                           ("25", "~{AMP_MUTE}", ctl)]:
         S.label(u.pin(pin), net, (-1, 0), color=col)
-    S.power(u.pin("16"), "GND")                       # SDIN2 unused in TDM
+    S.label(u.pin("16"), "I2S_DOUT", (-1, 0), color=i2s)   # SDIN2 = SDIN1: rear plays front
     a0, a1 = u.pin("22"), u.pin("23")                 # address 0x6A
     S.wire(a0, (a0[0] - 2.54, a0[1]), (a1[0] - 2.54, a1[1]), a1)
     S.junction((a1[0] - 2.54, a1[1]))
@@ -560,8 +560,8 @@ def amplifier(x, y):
     for p in ("1", "18", "36", "49"):
         S.power(u.pin(p), "GND")
 
-    S.text(x + 2.54, y + 142.24, "TDM4 on SDIN1, 32-bit slots, SCLK = 128 fs; MCLK = SCLK is allowed in TDM "
-           "(SLOSE73A 9.3.1.4), jumper-selected in the clock block.", size=1.27)
+    S.text(x + 2.54, y + 142.24, "I2S stereo on SDIN1 and SDIN2 (rear = front); per-channel volume registers do "
+           "the fader. MCLK 256 fs from the audio clock block.", size=1.27)
     S.text(x + 2.54, y + 144.78, "~{STANDBY} / ~{MUTE} have 100k internal pull-downs: the amp stays silent "
            "until the Pi's I2C init. I2C address 0x6A.", size=1.27)
     S.text(x + 2.54, y + 147.32, "Bypass bank: one 10 uF + 100 nF pair at each PVDD group (2/29/30, 42/43, 55/56), "
@@ -772,68 +772,94 @@ def rtc_eeprom(x, y):
            "reflash (HAT design guide).", size=1.27)
 
 
-# ------------------------------------------------- MCLK option (CS2100, DNP) ---
+# ------------------------------------------------------- audio clock master ---
 
-def clock_option(x, y):
-    """Fallback if MCLK = SCLK misbehaves: CS2100-CP locks a clean 256 fs
-    MCLK to FSYNC. Not fitted; the 0R from I2S_BCLK is the default."""
-    i2s, i2c = COLORS["i2s"], COLORS["i2c"]
-    S.box(x, y, x + 127, y + 71.12, "AMP MCLK SELECT (CS2100 option, not fitted)", i2s)
-    u = S.part("carrier:CS2100-CP", ref("U"), "CS2100-CP", (x + 45.72, y + 40.64),
-               footprint="Package_SO:TSSOP-10_3x3mm_P0.5mm", dnp=True)   # MSOP-10 = MO-187 3x3
-    u.place_prop("Reference", -17.78, 20.32, "left")
-    u.place_prop("Value", -17.78, 22.86, "left")
-    S.label(u.pin("5"), "I2S_FSYNC", (-1, 0), color=i2s)
-    S.label(u.pin("7"), "XTI", (-1, 0))
-    S.label(u.pin("6"), "XTO", (-1, 0))
-    S.label(u.pin("9"), "I2C_SCL", (-1, 0), color=i2c)
-    S.label(u.pin("10"), "I2C_SDA", (-1, 0), color=i2c)
-    S.power(u.pin("8"), "GND")                    # AD0 low: 0x4E
-    S.power(u.pin("2"), "GND")
-    S.no_connect(u.pin("4"))
-    vd = u.pin("1")
-    top = (vd[0], vd[1] - 7.62)
-    S.wire(vd, top, (top[0] - 10.16, top[1]))
-    S.power(top, "+3V3")
+def audio_clock(x, y):
+    """The board is the I2S clock master. The Pi's PCM block only carries two
+    channels, and the TAS6424 needs MCLK = 128-512 fs in I2S mode, so a
+    12.288 MHz oscillator feeds the amp's MCLK and a PCM1808-Q1 in master mode
+    (MD1 = MD0 = 1: 256 fs) divides it down to BCK = 64 fs and LRCK = 48 kHz.
+    All three clocks come from one crystal, so they can never drift apart.
+    The Pi runs its I2S port as a clock consumer (slave)."""
+    i2s = COLORS["i2s"]
+    S.box(x, y, x + 127, y + 81.28, "AUDIO CLOCKS: board is I2S master (48 kHz)", i2s)
+    u = S.part("carrier:PCM1808-Q1", ref("U"), "PCM1808-Q1", (x + 76.2, y + 50.8),
+               footprint="Package_SO:TSSOP-14_4.4x5mm_P0.65mm")
+    u.place_prop("Reference", -8.89, 17.78, "right")
+    u.place_prop("Value", -8.89, 20.32, "right")
+    scki = u.pin("6")
+    # 12.288 MHz oscillator, OUT level with SCKI, always enabled
+    osc = S.part("Oscillator:ASE-xxxMHz", ref("X"), "12.288MHz", (0, 0),
+                 footprint="Oscillator:Oscillator_SMD_Abracon_ASE-4Pin_3.2x2.5mm")
+    osc.move_pin_to("3", (x + 30.48, scki[1]))
+    osc.place_prop("Reference", -7.62, -6.35, "left")
+    osc.place_prop("Value", 5.08, 5.08, "left")
+    vdd, en = osc.pin("4"), osc.pin("1")
+    top = (vdd[0], vdd[1] - 5.08)
+    S.wire(vdd, top, (top[0] + 7.62, top[1]))
+    S.wire(en, (en[0] - 2.54, en[1]), (en[0] - 2.54, top[1]), top)
     S.junction(top)
-    shunt(C("100nF", dnp=True), (top[0] - 10.16, top[1]))
-    # MCLK select: fit exactly one of the two 0R links
-    co = u.pin("3")
-    r_cs = R("0R", rot=90, dnp=True)
-    r_cs.move_pin_to("1", (co[0] + 7.62, co[1]))
-    r_cs.place_prop("Reference", 0, 2.54)
-    r_cs.place_prop("Value", 0, 5.08)
-    node = (co[0] + 20.32, co[1])
-    S.wire(co, r_cs.pin("1"))
-    S.wire(r_cs.pin("2"), node)
-    r_bc = R("0R", rot=90)
-    r_bc.move_pin_to("1", (co[0] + 7.62, co[1] - 10.16))
-    r_bc.place_prop("Reference", 0, -2.54)
-    r_bc.place_prop("Value", 0, -5.08)
-    S.label(r_bc.pin("1"), "I2S_BCLK", (-1, 0), color=i2s, stub=5.08)
-    S.wire(r_bc.pin("2"), (node[0], r_bc.pin("2")[1]), node, color=i2s)
-    S.junction(node)
-    S.label(node, "AMP_MCLK", (1, 0), color=i2s, stub=7.62)
-    # 12 MHz reference crystal
-    cx, cy = x + 91.44, y + 48.26
-    S.label((cx - 7.62, cy), "XTI", (-1, 0), stub=0)
-    xt = S.part("Device:Crystal", ref("Y"), "12MHz", (0, 0), footprint="Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm",
-                dnp=True)
-    xt.move_pin_to("1", (cx - 3.81 + 0.0, cy))
-    xt.place_prop("Reference", 0, -3.81)
-    xt.place_prop("Value", 0, -6.35)
-    S.wire((cx - 7.62, cy), xt.pin("1"))
-    S.wire(xt.pin("2"), (xt.pin("2")[0] + 3.81, cy))
-    S.label((xt.pin("2")[0] + 3.81, cy), "XTO", (1, 0), stub=0)
-    for px, side in ((cx - 7.62, -1), (xt.pin("2")[0] + 3.81, 1)):
-        c = shunt(C("33pF", dnp=True), (px, cy))
-        if side < 0:
-            c.place_prop("Reference", -2.54, -1.27, "right")
-            c.place_prop("Value", -2.54, 1.27, "right")
-        S.junction((px, cy))
-    S.text(x + 2.54, y + 66.04, "Default: R (I2S_BCLK) fitted, MCLK = SCLK in TDM. Option: fit U, Y, caps "
-           "and the CLK_OUT 0R instead, remove the BCLK 0R.", size=1.27)
-    S.text(x + 2.54, y + 68.58, "CS2100 I2C address 0x4E.", size=1.27)
+    S.power(top, "+3V3")
+    shunt(C("100nF"), (top[0] + 7.62, top[1]))
+    S.power(osc.pin("2"), "GND")
+    # MCLK: one 33R at the source, then straight across to SCKI; tap to the amp
+    out = osc.pin("3")
+    rm = R("33R", rot=90)
+    rm.move_pin_to("1", (out[0] + 2.54, out[1]))
+    rm.place_prop("Reference", 0, -2.54)
+    rm.place_prop("Value", 0, 2.54)
+    S.wire(out, rm.pin("1"))
+    mnode = (rm.pin("2")[0] + 5.08, out[1])
+    S.wire(rm.pin("2"), mnode, scki, color=i2s)
+    S.junction(mnode)
+    S.label(mnode, "AMP_MCLK", (0, 1), color=i2s, stub=7.62)
+    # straps: MD1 = MD0 = 1 (master, 256 fs), FMT = 0 (I2S)
+    md0, md1, fmt = u.pin("10"), u.pin("11"), u.pin("12")
+    tx = md0[0] - 5.08
+    S.wire(md0, (tx, md0[1]))
+    S.wire(md1, (tx, md1[1]))
+    S.wire((tx, md1[1]), (tx, md0[1]), (tx, md0[1] - 5.08))
+    S.junction((tx, md0[1]))
+    S.power((tx, md0[1] - 5.08), "+3V3")
+    S.wire(fmt, (fmt[0] - 2.54, fmt[1]))
+    S.power((fmt[0] - 2.54, fmt[1]), "GND")
+    for p in ("13", "14", "9"):
+        S.no_connect(u.pin(p))
+    # BCK / LRCK out through 33R to the Pi and the amp
+    for pin, net in (("8", "I2S_BCLK"), ("7", "I2S_FSYNC")):
+        pp = u.pin(pin)
+        r = R("33R", rot=90)
+        r.move_pin_to("1", (pp[0] + 5.08, pp[1]))
+        r.place_prop("Reference", 0, -1.905 if pin == "8" else 1.905)
+        r.hide_value = True
+        S.wire(pp, r.pin("1"))
+        S.label(r.pin("2"), net, (1, 0), color=i2s, stub=5.08)
+    vref = u.pin("1")
+    S.wire(vref, (vref[0] + 5.08, vref[1]))
+    shunt(C("10uF", fp=FP_C0805), (vref[0] + 5.08, vref[1]))
+    # supplies, raised clear of the chip: VCC 5 V left, VDD 3.3 V right
+    vcc, vd = u.pin("3"), u.pin("4")
+    t1 = (vcc[0], vcc[1] - 15.24)
+    t2 = (vd[0], vd[1] - 20.32)
+    S.wire(vcc, t1, (t1[0] - 7.62, t1[1]), (t1[0] - 20.32, t1[1]))
+    S.wire(vd, t2, (t2[0] + 7.62, t2[1]), (t2[0] + 20.32, t2[1]))
+    S.power(t1, "+5V")
+    S.power(t2, "+3V3")
+    S.junction(t1)
+    S.junction(t2)
+    for xx, val, fp in ((t1[0] - 7.62, "100nF", FP_C), (t1[0] - 20.32, "10uF", FP_C0805)):
+        c = shunt(C(val, fp=fp), (xx, t1[1]))
+        c.place_prop("Reference", -2.54, -1.27, "right")
+        c.place_prop("Value", -2.54, 1.27, "right")
+    S.junction((t1[0] - 7.62, t1[1]))
+    for xx, val, fp in ((t2[0] + 7.62, "100nF", FP_C), (t2[0] + 20.32, "10uF", FP_C0805)):
+        shunt(C(val, fp=fp), (xx, t2[1]))
+    S.junction((t2[0] + 7.62, t2[1]))
+    S.power(u.pin("2"), "GND")
+    S.power(u.pin("5"), "GND")
+    S.text(x + 2.54, y + 76.2, "Pi I2S = clock consumer (slave). MCLK 256 fs, BCK 64 fs, LRCK 48 kHz, one oscillator. "
+           "PCM1808 ADC unused.", size=1.27)
+    S.text(x + 2.54, y + 78.74, "MD0/MD1 must be set before power-up (tied high). FMT low = I2S.", size=1.27)
 
 
 # ------------------------------------------------------------------- fans ---
@@ -923,6 +949,7 @@ def misc(x, y):
 UR, FJ, SEM = "UNI-ROYAL", "FOJAN", "Samsung Electro-Mechanics"
 PARTS = {
     ("0R", "R_0603"): ("0603WAF0000T5E", UR, "C21189"),
+    ("33R", "R_0603"): ("0603WAF330JT5E", UR, "C23140"),
     ("100R", "R_0603"): ("0603WAF1000T5E", UR, "C22775"),
     ("1k", "R_0603"): ("0603WAF1001T5E", UR, "C21190"),
     ("3.65k", "R_0603"): ("FRC0603F3651TS", FJ, "C2930089"),
@@ -936,7 +963,6 @@ PARTS = {
     ("95.3k", "R_0603"): ("FRC0603F9532TS", FJ, "C2907078"),
     ("100k", "R_0603"): ("0603WAF1003T5E", UR, "C25803"),
     ("22pF", "C_0603"): ("CL10C220JB8NNNC", SEM, "C1653"),
-    ("33pF", "C_0603"): ("CL10C330JB8NNNC", SEM, "C1663"),
     ("1nF", "C_0603"): ("CL10C102JB8NNNC", SEM, "C163508"),
     ("10nF", "C_0603"): ("0603B103K500NT", "FH", "C57112"),
     ("100nF", "C_0603"): ("CC0603KRX7R9BB104", "YAGEO", "C14663"),
@@ -947,11 +973,12 @@ PARTS = {
     ("1uF", "C_0805"): ("CL21B105KBFNNNE", SEM, "C28323"),
     ("2.2uF", "C_0805"): ("GRM21BR71E225KE11L", "Murata", "C77081"),
     ("10uF", "C_1206"): ("CL31B106KBHNNNE", SEM, "C89632"),
+    ("10uF", "C_0805"): ("CL21A106KAYNNNE", SEM, "C15850"),
     ("47uF", "C_1210"): ("TMK325ABJ476MM-P", "Taiyo Yuden", "C90142"),
     ("470uF", "CP_Elec_10x12.5"): ("KAT1H471M10130PDT", "KNSCHA", "C55348714"),
     ("3.3uH", "L_Chilisin_BMRx00060630"): ("MHCI06030-3R3M-R8", "Chilisin", "C108294"),
     ("4.7uH", "L_APV_APH0840"): ("APH0840T4R7MP", "APV", "C54123781"),
-    ("12MHz", ""): ("X322512MSB4SI", "YXC", "C9002"),
+    ("12.288MHz", ""): ("SX3M12.288B10F20TNN", "SCTF", "C7431335"),
     ("1N4148W", ""): ("1N4148W", "ST(Semtech)", "C81598"),
     ("BZT52C15", ""): ("BZT52C15", "hongjiacheng", "C19077412"),
     ("H15VND3B", ""): ("H15VND3B", "hongjiacheng", "C20615813"),
@@ -966,7 +993,7 @@ PARTS = {
     ("ADS1115IDGS", ""): ("ADS1115IDGSR", "Texas Instruments", "C37593"),
     ("DS3231SN", ""): ("DS3231SN#T&R", "Analog Devices", "C9866"),
     ("CAT24C32", ""): ("CAT24C32WI-GT3", "onsemi", "C81193"),
-    ("CS2100-CP", ""): ("CS2100CP-CZZR", "Cirrus Logic", "C2663267"),
+    ("PCM1808-Q1", ""): ("PCM1808QPWRQ1", "Texas Instruments", "C2864157"),
     ("CR2032", ""): ("BS-07-A1BJ001", "MYOUNG", "C2979167"),
     ("Harness_4Runner", ""): ("430452012", "Molex", "C485575"),
     ("Pi 4 GPIO", ""): ("ZX-PM2.54-2-20PY", "Megastar", "C7499354"),
@@ -1016,7 +1043,7 @@ def main():
     section("amp", amplifier, 113.03, 251.46)
     section("filter", output_filter, 288.29, 226.06)
     section("fans", fans, 420.37, 226.06)
-    section("clock", clock_option, 288.29, 320.04)
+    section("clock", audio_clock, 288.29, 320.04)
     assign_parts()
     S.write(OUT)
     print("wrote", os.path.relpath(OUT))

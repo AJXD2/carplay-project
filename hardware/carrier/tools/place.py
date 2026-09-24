@@ -215,7 +215,7 @@ def place_amp(fps, ax, ay):
     hs = find(section(fps, "misc"), "Heatsink", n=2)
     P(0, -HEATSINK_Y, hs[0])
     P(0, HEATSINK_Y, hs[1])
-    P(10.0, -24.0, one(amp, "470uF"))                  # PVDD bulk, above the chip
+    P(9.0, -27.5, one(amp, "470uF"))                   # PVDD bulk, clear of the heatsink
 
 
 # --- harness, input protection, buck ------------------------------------------
@@ -338,7 +338,7 @@ def place_small(fps, ox, oy):
 
     # RTC, coin cell, ID EEPROM over the Pi (top side is free there)
     rtc = section(fps, "rtc")
-    put(one(rtc, "CR2032"), X(33.0), Y(48.0))
+    put(one(rtc, "CR2032"), X(33.0), Y(45.8))
     put(one(rtc, "DS3231SN"), X(71.0), Y(38.0))
     y = pack(chain(rtc, ("100nF", "+3V3"), ("10k", "RTC_INT")), X(64.0), Y(45.0), X(80.0))
     put(one(rtc, "CAT24C32"), X(71.0), y + 4.0)
@@ -346,7 +346,7 @@ def place_small(fps, ox, oy):
 
     # MCLK option (not fitted) beside the RTC
     clk = section(fps, "clock")
-    pack(find(clk, n=0), X(40.0), Y(62.5), X(60.0))
+    pack(find(clk, n=0), X(40.0), Y(59.6), X(62.0))
 
     # key / lights / reverse sensing and power hold, next to J1's control pins
     hold = section(fps, "hold")
@@ -397,6 +397,26 @@ def park(fps, origin, size):
         row_h = max(row_h, h)
 
 
+def heatsink_outline(board, ox, oy):
+    """Heatsink footprint (tools/heatsink.py) on Dwgs.User and F.Fab, so tall
+    parts stay out from under it. Everything under it must be < 2.2 mm."""
+    ax, ay = ox + AMP_AT[0], oy + AMP_AT[1]
+    for layer in (pcbnew.Dwgs_User, pcbnew.F_Fab):
+        r = pcbnew.PCB_SHAPE(board)
+        r.SetShape(pcbnew.SHAPE_T_RECT)
+        r.SetStart(pcbnew.VECTOR2I(mm(ax - 10.0), mm(ay - 20.7)))
+        r.SetEnd(pcbnew.VECTOR2I(mm(ax + 10.0), mm(ay + 20.7)))
+        r.SetLayer(layer)
+        r.SetWidth(mm(0.15))
+        board.Add(r)
+    t = pcbnew.PCB_TEXT(board)
+    t.SetText("HEATSINK 20x41.4 (mech/heatsink.step): parts under it < 2.2 mm")
+    t.SetLayer(pcbnew.Dwgs_User)
+    t.SetPosition(pcbnew.VECTOR2I(mm(ax), mm(ay + 22.0)))
+    t.SetTextSize(pcbnew.VECTOR2I(mm(0.8), mm(0.8)))
+    board.Add(t)
+
+
 def place_all(board, fps, origin, size):
     ox, oy = origin
     place_pi(fps, ox, oy)
@@ -405,4 +425,5 @@ def place_all(board, fps, origin, size):
     place_protection(fps, ox, oy)
     place_buck(fps, ox, oy)
     place_small(fps, ox, oy)
+    heatsink_outline(board, ox, oy)
     park(fps, origin, size)

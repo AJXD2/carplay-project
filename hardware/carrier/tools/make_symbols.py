@@ -195,21 +195,22 @@ SYMBOLS.append(symbol(
             P("GND", "[9,10,11,12]", "power_in")],
     width=20.32))
 
-# --- Cirrus CS2100-CP fractional-N clock multiplier (DNP fallback MCLK source)
+# --- TI PCM1808-Q1 audio ADC, used here as the I2S clock master: in master
+# mode (MD1 = MD0 = high, 256 fs) it divides the 12.288 MHz oscillator down to
+# BCK = 64 fs and LRCK = fs, cleanly aligned. Pinout from SLAS622 / EasyEDA.
 SYMBOLS.append(symbol(
-    "CS2100-CP", "U", "CS2100-CP",
-    "Package_SO:MSOP-10_3x3mm_P0.5mm",
-    "https://statics.cirrus.com/pubs/proDatasheet/CS2100-CP_F3.pdf",
-    "Fractional-N clock multiplier, I2C control, MSOP-10",
-    "clock PLL multiplier MCLK",
-    left=[P("CLK_IN", "5", "input"), P("XTI/REF_CLK", "7", "input"), P("XTO", "6", "output"), None,
-          P("SCL", "9", "input", [("CCLK", "input")]),
-          P("SDA", "10", "bidirectional", [("CDIN", "input")]),
-          P("AD0", "8", "input", [("~{CS}", "input")])],
-    right=[P("CLK_OUT", "3", "output"), P("AUX_OUT", "4", "output")],
-    top=[P("VD", "1", "power_in")],
-    bottom=[P("GND", "2", "power_in")],
-    width=27.94))
+    "PCM1808-Q1", "U", "PCM1808-Q1",
+    "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+    "https://www.ti.com/lit/ds/symlink/pcm1808-q1.pdf",
+    "Automotive 24-bit stereo audio ADC, I2S master or slave, TSSOP-14",
+    "audio ADC I2S clock master",
+    left=[P("MD0", "10", "input"), P("MD1", "11", "input"), P("FMT", "12", "input"), None,
+          P("SCKI", "6", "input"), None, P("VINL", "13", "input"), P("VINR", "14", "input")],
+    right=[P("BCK", "8", "bidirectional"), P("LRCK", "7", "bidirectional"), P("DOUT", "9", "output"),
+           None, P("VREF", "1", "passive")],
+    top=[P("VCC", "3", "power_in"), P("VDD", "4", "power_in")],
+    bottom=[P("AGND", "2", "power_in"), P("DGND", "5", "power_in")],
+    width=17.78))
 
 # --- 2007 4Runner harness (Metra adapter wires crimped into a Micro-Fit 2x10).
 # Pin n sits directly above pin n+10, so each wire pair shares a column.
