@@ -59,6 +59,42 @@ def export_netlist():
     return ET.parse(NETLIST)
 
 
+# KiCad ships no model for these: STEP from LCSC/EasyEDA (easyeda2kicad), in
+# lib/3d, placed on KiCad's footprint origin (offset mm, 3D axes: y up)
+MODELS = {
+    "Connector_Molex:Molex_Micro-Fit_3.0_43045-2012_2x10_P3.00mm_Vertical":
+        ("CONN-TH_20P-P3.00_430452012.step", (13.5, -1.505, 0.0), 180.0),
+    "Battery:BatteryHolder_MYOUNG_BS-07-A1BJ001_CR2032":
+        ("BAT-TH_BS-07-A1BJ001.step", (14.23, 0.0, 0.0), 0.0),
+}
+
+
+def set_model(fp, fpid):
+    if fpid not in MODELS:
+        return
+    name, off, rot = MODELS[fpid]
+    fp.Models().clear()
+    m = pcbnew.FP_3DMODEL()
+    m.m_Filename = "${KIPRJMOD}/lib/3d/easyeda.3dshapes/" + name
+    m.m_Offset = pcbnew.VECTOR3D(*off)
+    m.m_Rotation = pcbnew.VECTOR3D(0, 0, rot)
+    fp.Models().push_back(m)
+
+
+CREDIT = ("@ajxd2  Anthony Kovach", (90.0, 96.3), 2.0)     # top silkscreen, bottom strip
+
+
+def credit(board):
+    text, (x, y), size = CREDIT
+    t = pcbnew.PCB_TEXT(board)
+    t.SetText(text)
+    t.SetLayer(pcbnew.F_SilkS)
+    t.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(ORIGIN[0] + x), pcbnew.FromMM(ORIGIN[1] + y)))
+    t.SetTextSize(pcbnew.VECTOR2I(pcbnew.FromMM(size), pcbnew.FromMM(size)))
+    t.SetTextThickness(pcbnew.FromMM(0.3))
+    board.Add(t)
+
+
 def load_fp(fpid):
     lib, name = fpid.split(":")
     path = LOCAL_FP.get(lib, os.path.join(STOCK_FP, f"{lib}.pretty"))
@@ -66,6 +102,7 @@ def load_fp(fpid):
     if fp is None:
         raise SystemExit(f"footprint not found: {fpid}")
     fp.SetFPID(pcbnew.LIB_ID(lib, name))
+    set_model(fp, fpid)
     return fp
 
 
@@ -167,6 +204,7 @@ def main():
                     pad.SetNet(ni)
 
     outline(board)
+    credit(board)
     place.place_all(board, fps, ORIGIN, (BOARD_W, BOARD_H))
     board.Save(PCB)
     write_project()             # after Save, which writes the project file with defaults
