@@ -266,6 +266,7 @@ def buck(x, y):
                  footprint="Inductor_SMD:L_APV_APH0840")
     ind.move_pin_to("1", (sx + 25.4, sy))
     S.wire(sw, ct, ind.pin("1"))
+    S.label((sx + 5.08, sy), "SW_5V", (0, -1), color=org, stub=0)   # net name for the PCB rules
 
     # output rail: feedback divider, feed-forward, output caps
     xt, xf = sx + 38.1, sx + 50.8
