@@ -780,7 +780,7 @@ def clock_option(x, y):
     i2s, i2c = COLORS["i2s"], COLORS["i2c"]
     S.box(x, y, x + 127, y + 71.12, "AMP MCLK SELECT (CS2100 option, not fitted)", i2s)
     u = S.part("carrier:CS2100-CP", ref("U"), "CS2100-CP", (x + 45.72, y + 40.64),
-               footprint="Package_SO:MSOP-10_3x3mm_P0.5mm", dnp=True)
+               footprint="Package_SO:TSSOP-10_3x3mm_P0.5mm", dnp=True)   # MSOP-10 = MO-187 3x3
     u.place_prop("Reference", -17.78, 20.32, "left")
     u.place_prop("Value", -17.78, 22.86, "left")
     S.label(u.pin("5"), "I2S_FSYNC", (-1, 0), color=i2s)

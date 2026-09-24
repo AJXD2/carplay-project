@@ -303,6 +303,82 @@ def place_buck(fps, ox, oy):
     P(11.6, 11.0, one(g, "1uF", ["+3V3"]), 90)
 
 
+# --- slow, low-power circuits: packed in rows ---------------------------------
+
+def _size(fp, rot):
+    fp.SetOrientationDegrees(rot)
+    cy = fp.GetCourtyard(pcbnew.F_CrtYd)
+    bb = cy.BBox() if cy.OutlineCount() else fp.GetBoundingBox(False)
+    pos = fp.GetPosition()
+    return (pcbnew.ToMM(bb.GetWidth()), pcbnew.ToMM(bb.GetHeight()),
+            pcbnew.ToMM(bb.GetCenter().x - pos.x), pcbnew.ToMM(bb.GetCenter().y - pos.y))
+
+
+def pack(parts, x0, y0, x1, gap=0.8, rot=0):
+    """Lay parts out left to right in rows between x0 and x1, keeping their
+    order (so a signal chain reads left to right). Returns the y below."""
+    x, y, row_h = x0, y0, 0.0
+    for fp in parts:
+        w, h, cx, cy = _size(fp, rot)
+        if x + w > x1 and x > x0:
+            x, y, row_h = x0, y + row_h + gap, 0.0
+        put(fp, x + w / 2 - cx, y + h / 2 - cy, rot)
+        x += w + gap
+        row_h = max(row_h, h)
+    return y + row_h + gap
+
+
+def chain(g, *specs):
+    """Parts by (value, net) in order, skipping ones already placed."""
+    return [one(g, v, [n] if n else []) for v, n in specs]
+
+
+def place_small(fps, ox, oy):
+    X, Y = (lambda v: ox + v), (lambda v: oy + v)
+
+    # RTC, coin cell, ID EEPROM over the Pi (top side is free there)
+    rtc = section(fps, "rtc")
+    put(one(rtc, "CR2032"), X(33.0), Y(48.0))
+    put(one(rtc, "DS3231SN"), X(71.0), Y(38.0))
+    y = pack(chain(rtc, ("100nF", "+3V3"), ("10k", "RTC_INT")), X(64.0), Y(45.0), X(80.0))
+    put(one(rtc, "CAT24C32"), X(71.0), y + 4.0)
+    pack(find(rtc, n=0), X(62.0), y + 8.5, X(81.0))
+
+    # MCLK option (not fitted) beside the RTC
+    clk = section(fps, "clock")
+    pack(find(clk, n=0), X(40.0), Y(62.5), X(60.0))
+
+    # key / lights / reverse sensing and power hold, next to J1's control pins
+    hold = section(fps, "hold")
+    y = Y(88.0)
+    for net in ("ACC_ON", "LIGHTS_ON", "REVERSE"):
+        base = next(f for f in find(hold, "MMBT3904", n=0) if has(f, net))
+        parts = [one(hold, "47k", [f"Net-({base.GetReference()}-B)"]),
+                 one(hold, "10k", [f"Net-({base.GetReference()}-B)"]),
+                 one(hold, "100nF", [f"Net-({base.GetReference()}-B)"]), base,
+                 one(hold, "10k", [net])]
+        pack(parts, X(126.0), y, X(164.0))
+        y += 4.2
+    pack(find(hold, n=0), X(96.0), Y(96.0), X(124.0))
+
+    # steering wheel + battery ADC
+    swc = section(fps, "swc")
+    put(one(swc, "ADS1115IDGS"), X(80.0), Y(92.0))
+    pack(find(swc, n=0), X(56.0), Y(86.0), X(76.0))
+
+    # fans along the bottom-left edge so their cables come off the board edge
+    fans = section(fps, "fans")
+    for i, net in enumerate(("FAN1", "FAN2")):
+        hdr = next(f for f in find(fans, n=0) if f.GetValue() == net)
+        put(hdr, X(4.0 + 24.0 * i), Y(97.5))
+        rest = [f for f in find(fans, n=0) if any(net in n for n in nets_of(f)) or
+                has(f, f"Net-({hdr.GetReference()}-PWM)")]
+        pack(rest, X(2.0 + 24.0 * i), Y(84.0), X(24.0 + 24.0 * i))
+
+    # debug UART (not fitted) in the corner
+    put(fps["J3"], X(52.0), Y(95.0))
+
+
 def park(fps, origin, size):
     """Grid below the board, grouped by reference prefix."""
     x0, y0 = origin
@@ -328,4 +404,5 @@ def place_all(board, fps, origin, size):
     place_harness(fps, ox, oy)
     place_protection(fps, ox, oy)
     place_buck(fps, ox, oy)
+    place_small(fps, ox, oy)
     park(fps, origin, size)
