@@ -25,7 +25,7 @@ Software for it lives in [`launcher/board/`](../../launcher/board/README.md).
 | Placement | Done for the nominal Pi position. DRC: no overlaps or clearance errors. |
 | Routing | Done. 0 unrouted, 0 DRC errors (silkscreen tidy pending), schematic parity 0. |
 | Silkscreen tidy | Not started (cosmetic DRC items only). |
-| Pi position on the screen | Estimated from a product photo, **not yet measured** (see Mechanical). |
+| Pi position on the screen | Measured on the real screen and confirmed with a printed fit test (see Mechanical). |
 | Software | Written and tested on simulated hardware (18 tests), not installed. |
 | Ordering | Not yet. |
 
@@ -350,7 +350,8 @@ What each script owns:
 
 ## Open items
 
-1. Reprint `mech/fit_plate.stl` (outline corrected) and check the edges.
+1. ~~Fit check~~: done 2026-09-24, the corrected outline (`mech/fit_frame.stl`)
+   fits the screen, screw holes, header and port notch exactly.
 2. Measure display thickness and the display-to-Pi standoff height (3D
    model only).
 3. Tidy silkscreen; add the harness pin table next to J1.
