@@ -260,6 +260,10 @@ def buck():
     zone("/SW_5V", F, rect(sw[1] - 0.3, sw[2] - 0.62, ly[0] + 1.6, sw[2] + 0.62), priority=7, name="SW")
     # the boot cap's SW end lands here, mid-pour between the pin and L1
     via("/SW_5V", *SW_TAP)
+    # CBOOT escapes straight up between its neighbours (off the maze grid),
+    # then across to the boot cap
+    p14, cb = pad("U5", "14"), pad("C22", "1")
+    track("Net-(U5-CBOOT)", F, 0.25, [p14, (p14[0], 57.55), (cb[0] + 0.4, 57.55), cb])
     # output: L1 pad 2 -> C24/C25/C26 -> +5V plane
     l2 = pad("L1", 2)
     # notched bottom-right so C26's GND pad stays outside and gets its own via
@@ -611,7 +615,7 @@ def gnd_fanout(netname="GND"):
 MAZE_NETS = [("+3V3", ("R36", "1"), ("U8", "4")),      # fan tach pull-ups by the Pi header: +3V3 has
              ("+3V3", ("R34", "1"), ("R36", "1")),     # no plane, so their feed is reserved first
              "Net-(U1-SW)", "/OV_SET", "/DGATE", "/+12V_BATT",
-             "Net-(U5-CBOOT)", ("/SW_5V", ("C22", "2"), SW_TAP), ("+5V", ("U5", "1"), ("U6", "3")),
+             ("/SW_5V", ("C22", "2"), SW_TAP), ("+5V", ("U5", "1"), ("U6", "3")),
              "Net-(U5-EN{slash}SYNC)", "/I2S_FSYNC",
              "/FAN1_PWM", "/FAN2_PWM", "/FAN1_TACH", "/~{RTC_INT}", "/SWC1_ADC"]
 
