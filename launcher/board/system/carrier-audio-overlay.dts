@@ -1,0 +1,54 @@
+// Carrier board audio: the Pi's I2S port as a clock CONSUMER.
+//
+// The board's PCM1808 (master mode, 256 fs from a 12.288 MHz oscillator)
+// drives BCLK (GPIO18) and LRCLK (GPIO19); the Pi only sends data on
+// GPIO21. The TAS6424 amp gets MCLK from the same oscillator and is set up
+// over I2C by carrierd, so ALSA just sees a plain stereo DAC. The dummy
+// codec is pcm5102a (no controls, any rate); the clocks are fixed at
+// 48 kHz, so PulseAudio must run at 48 kHz and resample everything else
+// (default-sample-rate = alternate-sample-rate = 48000 in daemon.conf).
+//
+// Build on the Pi:  dtc -@ -I dts -O dtb -o /boot/firmware/overlays/carrier-audio.dtbo carrier-audio-overlay.dts
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2s_clk_consumer>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			carrier_codec: carrier-codec {
+				#sound-dai-cells = <0>;
+				compatible = "ti,pcm5102a";
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&sound>;
+		__overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "Carrier";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,bitclock-master = <&dailink0_codec>;
+			simple-audio-card,frame-master = <&dailink0_codec>;
+			status = "okay";
+
+			simple-audio-card,cpu {
+				sound-dai = <&i2s_clk_consumer>;
+			};
+			dailink0_codec: simple-audio-card,codec {
+				sound-dai = <&carrier_codec>;
+			};
+		};
+	};
+};

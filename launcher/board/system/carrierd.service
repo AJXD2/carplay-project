@@ -1,0 +1,17 @@
+[Unit]
+Description=Carrier board: amplifier, steering wheel, key-off shutdown, fans
+After=sound.target network.target
+
+[Service]
+User=ajxd2
+SupplementaryGroups=gpio i2c
+Environment=DISPLAY=:0
+WorkingDirectory=/home/ajxd2/launcher
+ExecStart=/usr/bin/python3 -m board.carrierd
+Restart=always
+RestartSec=2
+# SIGTERM (stop / halt) mutes the amp and puts it in standby before power goes
+TimeoutStopSec=3
+
+[Install]
+WantedBy=multi-user.target
