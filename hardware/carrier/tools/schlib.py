@@ -24,8 +24,18 @@ def snap(v, g=G):
     return round(round(v / g) * g, 4)
 
 
-def uid():
-    return str(uuidlib.uuid4())
+_NS = uuidlib.UUID("6f2d1c1e-4a52-4c8e-9b3a-2d0c8f6a7e11")
+_seq = [0]
+
+
+def uid(key=None):
+    """Deterministic UUIDs: symbols and their pins are keyed by reference so
+    the board keeps its link to the schematic across regenerations; other
+    items take a running counter so reruns give byte-identical output."""
+    if key is None:
+        _seq[0] += 1
+        key = f"item:{_seq[0]}"
+    return str(uuidlib.uuid5(_NS, key))
 
 
 # ---------------------------------------------------------------- library --
@@ -125,7 +135,7 @@ class Part:
         self.in_bom = in_bom
         self.block = sch.use_symbol(lib_id)
         self.pins = parse_pins(self.block)
-        self.uuid = uid()
+        self.uuid = uid(f"sym:{ref}")
         self.prop_pos = {}
 
     def _xf(self, px, py):
@@ -209,7 +219,7 @@ class Part:
             for n in (re.findall(r"\d+", p["number"]) if p["number"].startswith("[") else [p["number"]]):
                 if n not in seen:
                     seen.append(n)
-                    pin_lines.append(f'(pin "{n}" (uuid "{uid()}"))')
+                    pin_lines.append(f'(pin "{n}" (uuid "{uid(f"pin:{self.ref}:{n}")}"))')
         return (f'(symbol (lib_id "{self.lib_id}") (at {self.x} {self.y} {self.rot}){mirror} (unit {self.unit}) '
                 f'(exclude_from_sim no) (in_bom {"yes" if self.in_bom and not self.ref.startswith("#") else "no"}) (on_board yes) '
                 f'(dnp {"yes" if self.dnp else "no"}) (uuid "{self.uuid}") '
@@ -228,7 +238,8 @@ COLORS = {
 class Schematic:
     def __init__(self, project, title, paper="A2"):
         self.project, self.title, self.paper = project, title, paper
-        self.uuid = uid()
+        _seq[0] = 0
+        self.uuid = uid(f"sheet:{project}")
         self.lib_symbols = {}
         self.parts, self.items = [], []
         self._pwr = 0

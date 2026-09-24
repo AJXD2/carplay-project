@@ -72,7 +72,7 @@ def lbl(part, pin, net, color=None, stub=2.54):
 def harness(x, y):
     S.box(x, y, x + 93.98, y + 76.2, "HARNESS (Metra adapter)", (90, 90, 90))
     j = S.part("carrier:Harness_4Runner", ref("J"), "Harness_4Runner", (x + 44.45, y + 38.1),
-               footprint="Connector_Molex:Molex_Micro-Fit_3.0_43045-2000_2x10_P3.00mm_Horizontal")
+               footprint="Connector_Molex:Molex_Micro-Fit_3.0_43045-2012_2x10_P3.00mm_Vertical")
     j.place_prop("Reference", -13.97, -22.86, "left")
     j.place_prop("Value", -13.97, -20.32, "left")
     for pin, net, col in [("+12V_BATT", "+12V_BATT", "power12"), ("ACC", "ACC_IN", "ctl"),
@@ -962,7 +962,7 @@ PARTS = {
     ("CAT24C32", ""): ("CAT24C32WI-GT3", "onsemi", "C81193"),
     ("CS2100-CP", ""): ("CS2100CP-CZZR", "Cirrus Logic", "C2663267"),
     ("CR2032", ""): ("BS-07-A1BJ001", "MYOUNG", "C2979167"),
-    ("Harness_4Runner", ""): ("430452000", "Molex", "C485576"),
+    ("Harness_4Runner", ""): ("430452012", "Molex", "C485575"),
     ("Pi 4 GPIO", ""): ("ZX-PM2.54-2-20PY", "Megastar", "C7499354"),
     ("FAN1", ""): ("470531000", "Molex", "C240840"),
     ("FAN2", ""): ("470531000", "Molex", "C240840"),

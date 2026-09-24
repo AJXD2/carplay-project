@@ -216,7 +216,7 @@ SYMBOLS.append(symbol(
 pa = "passive"
 SYMBOLS.append(symbol(
     "Harness_4Runner", "J", "Harness_4Runner",
-    "Connector_Molex:Molex_Micro-Fit_3.0_43045-2000_2x10_P3.00mm_Horizontal",
+    "Connector_Molex:Molex_Micro-Fit_3.0_43045-2012_2x10_P3.00mm_Vertical",
     "https://www.molex.com/pdm_docs/sd/430450201_sd.pdf",
     "Head-unit harness for the 2007 Toyota 4Runner (non-JBL), Molex Micro-Fit 3.0 2x10. REV = reverse-light 12 V",
     "harness connector car radio micro-fit",

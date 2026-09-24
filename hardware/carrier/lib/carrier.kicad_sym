@@ -161,7 +161,7 @@
   (symbol "Harness_4Runner" (pin_names (offset 0.508)) (exclude_from_sim no) (in_bom yes) (on_board yes)
     (property "Reference" "J" (at -15.24 19.05 0) (effects (font (size 1.27 1.27)) (justify left bottom)))
     (property "Value" "Harness_4Runner" (at -15.24 -26.67 0) (effects (font (size 1.27 1.27)) (justify left top)))
-    (property "Footprint" "Connector_Molex:Molex_Micro-Fit_3.0_43045-2000_2x10_P3.00mm_Horizontal" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
+    (property "Footprint" "Connector_Molex:Molex_Micro-Fit_3.0_43045-2012_2x10_P3.00mm_Vertical" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "Datasheet" "https://www.molex.com/pdm_docs/sd/430450201_sd.pdf" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "Description" "Head-unit harness for the 2007 Toyota 4Runner (non-JBL), Molex Micro-Fit 3.0 2x10. REV = reverse-light 12 V" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
     (property "ki_keywords" "harness connector car radio micro-fit" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
