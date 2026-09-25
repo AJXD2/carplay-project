@@ -58,6 +58,8 @@ ssh ajxd2@raspi.local 'sudo tee /media/root-ro/home/ajxd2/some-file'
 # use the overlayroot-chroot helper instead of remounting manually:
 ssh ajxd2@raspi.local 'sudo overlayroot-chroot apt-get install -y <pkg>'
 # (No "--" before the command: overlayroot-chroot <cmd...> directly.)
+# Kernel or initramfs updates need the boot partition mounted into the
+# chroot first; see "Initramfs and kernel updates in the chroot".
 
 # Best-effort remount back to read-only when done:
 ssh ajxd2@raspi.local 'sudo mount -o remount,ro /media/root-ro'
@@ -307,24 +309,55 @@ laptop can `ssh -D 1080 -N ajxd2@<pi-eth0-ip>` and point the tool at
   headless Chromium into a theme under `launcher/splash/build/<draft>/`
   (entrance frames played once, then a loop). Installed: `4-bulb-check`.
 - Install with `launcher/splash/install.sh <draft>`. Plymouth runs from the
-  initramfs, so the script rebuilds it in `overlayroot-chroot` (with
-  `MODULES=most` and `FSTYPE=ext4` in a temporary config copy: the Pi's
-  `MODULES=dep` can't find the root device in the chroot, and the fsck hook
-  can't detect its type) and writes it to `initramfs8` on the FAT boot
-  partition itself. It checks the new image holds the draft and `fsck.ext4`
+  initramfs, so the script rebuilds it in `overlayroot-chroot` and writes it
+  to `initramfs8` on the FAT boot partition itself. It checks the new image holds the draft and `fsck.ext4`
   before touching the boot partition, and shows a progress card on the
   Pi's screen while it runs. Backups: `themes/carplay-rings`,
   `initramfs8.bak`, `cmdline.txt.bak`, `~/.xinitrc.orig`,
   `~/.bash_profile.orig`.
 - Hand-off to X: `~/.bash_profile` (repo copy `launcher/system/bash_profile`)
-  quits Plymouth with `--retain-splash` and starts Xorg with `-nocursor`, so
-  no pointer is ever drawn. `~/.xinitrc` (`launcher/system/xinitrc`) sets
+  quits Plymouth with `--retain-splash` (hard-killing it if it's still up
+  after 2 s, since a normal kill clears the screen) and starts Xorg with
+  `-nocursor`, so no pointer is ever drawn. `~/.xinitrc` (`launcher/system/xinitrc`) sets
   the root background to the theme's `last_frame.png` and runs
   `launcher/splash/xsplash.py boot`, which keeps the splash loop playing
   until the launcher writes `/tmp/carplay_pi_launcher_winid` (Chromium takes
   ~10 s after X starts; without it the screen sat on a still frame).
   `vt.global_cursor_default=0` on the kernel command line hides the console
   text cursor.
+- tty1 autologin: systemd 257 resets the terminal and asks it for its size
+  before starting agetty, and waits for the reply. Plymouth holds tty1 in
+  graphics mode, so on some boots nothing answered and the Pi sat on the
+  splash forever (stuck as `(agetty)`, blocked in `n_tty_read`).
+  `getty@tty1.service.d/noquery.conf` (repo copy
+  `launcher/system/getty-tty1-noquery.conf`) sets a fixed `TTYRows=30`,
+  `TTYColumns=100` and `TTYReset=no`, so there is nothing to wait for.
+  (`systemctl show` prints those sizes as `[unprintable]`; `systemctl cat`
+  shows the real values.)
+
+### Initramfs and kernel updates in the chroot
+
+Any initramfs build inside `overlayroot-chroot` needs two things the stock
+setup doesn't give it:
+
+- **Build settings.** `MODULES=dep` can't work out the root device in the
+  chroot ("failed to determine device for /") and the fsck hook can't
+  detect the root type, so it silently leaves fsck out.
+  `/etc/initramfs-tools/conf.d/overlayroot` (repo copy
+  `launcher/system/initramfs-overlayroot.conf`, installed by the splash
+  installer) sets `MODULES=most` and `FSTYPE=ext4`.
+- **The real boot partition.** Inside the chroot `/boot/firmware` is an
+  empty directory on ext4, not the FAT partition the Pi boots from. A kernel
+  update would put `kernel8.img` and `initramfs8` there and replace the
+  modules on disk, leaving the Pi booting the old kernel against new
+  modules. Mount the FAT partition into the chroot first:
+
+```sh
+sudo mount -o remount,rw /media/root-ro
+sudo mount /dev/mmcblk0p1 /media/root-ro/boot/firmware
+sudo overlayroot-chroot apt-get upgrade    # or update-initramfs -u
+sudo umount /media/root-ro/boot/firmware   # chroot leaves it read-only; umount is fine
+```
 
 ## launcher: CarPlay as one app among others
 

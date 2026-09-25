@@ -3,16 +3,19 @@
 # Pi's boot splash, writing through /media/root-ro so it persists. Also
 # installs the boot session pieces the splash depends on: xsplash.py (keeps
 # the animation playing in X until the launcher is up), ~/.xinitrc and
-# ~/.bash_profile from launcher/system/, and vt.global_cursor_default=0 on
-# the kernel command line so the console never shows a text cursor.
+# ~/.bash_profile from launcher/system/, a getty@tty1 override so autologin
+# can't hang behind Plymouth, and vt.global_cursor_default=0 on the kernel
+# command line so the console never shows a text cursor.
 #
 # While it runs, a progress card is shown on the Pi's screen (progress.sh),
 # so whoever is in the car knows not to cut the power.
 #
 # Plymouth runs from the initramfs, so the theme files alone do nothing: the
 # initramfs is rebuilt in overlayroot-chroot and copied to the FAT boot
-# partition as initramfs8, which is what the Pi 4 boots. Two things differ
-# from a plain update-initramfs, via a temporary copy of the config:
+# partition as initramfs8, which is what the Pi 4 boots. Two settings are
+# needed for any initramfs build inside overlayroot-chroot, so they're
+# installed as /etc/initramfs-tools/conf.d/overlayroot (also used by kernel
+# updates, see INFO.md):
 #   MODULES=most  the Pi's MODULES=dep fails in the chroot ("failed to
 #                 determine device for /")
 #   FSTYPE=ext4   the fsck hook can't detect the root type in the chroot and
@@ -65,6 +68,11 @@ for f in xinitrc bash_profile; do
   ssh "$HOST" "sudo tee $RO_HOME/.$f >/dev/null" < "$SYSTEM_DIR/$f"
 done
 ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $RO_HOME/launcher/splash $RO_HOME/.xinitrc $RO_HOME/.bash_profile"
+# tty1 login must not wait on terminal queries Plymouth never answers
+ssh "$HOST" "sudo tee $RO/etc/systemd/system/getty@tty1.service.d/noquery.conf >/dev/null" < "$SYSTEM_DIR/getty-tty1-noquery.conf"
+
+echo "==> Installing the initramfs settings for building in the chroot"
+ssh "$HOST" "sudo tee $RO/etc/initramfs-tools/conf.d/overlayroot >/dev/null" < "$SYSTEM_DIR/initramfs-overlayroot.conf"
 
 echo "==> Rebuilding the initramfs (takes a minute)"
 onscreen 15 80 25 "Rebuilding the boot image. Keep the power on."
@@ -73,14 +81,7 @@ set -e
 KVER="$(uname -r)"
 NEW="/boot/initrd.img-$KVER.splash"
 sudo rm -f "/media/root-ro$NEW"
-sudo overlayroot-chroot sh -c "
-  conf=\$(mktemp -d)
-  cp -a /etc/initramfs-tools/. \$conf/
-  sed -i 's/^MODULES=.*/MODULES=most/' \$conf/initramfs.conf
-  echo FSTYPE=ext4 >> \$conf/initramfs.conf
-  mkinitramfs -d \$conf -o $NEW $KVER
-  rm -rf \$conf
-"
+sudo overlayroot-chroot mkinitramfs -o "$NEW" "$KVER"
 check=/tmp/splash-check
 sudo rm -rf "$check"
 if ! sudo unmkinitramfs "/media/root-ro$NEW" "$check" \
