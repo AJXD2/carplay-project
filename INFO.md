@@ -299,6 +299,33 @@ laptop can `ssh -D 1080 -N ajxd2@<pi-eth0-ip>` and point the tool at
   draw, just without effects.
 - No Docker, no other custom services beyond stock Bluetooth/PulseAudio.
 
+## Boot splash
+
+- The Plymouth theme is `carplay` (`/usr/share/plymouth/themes/carplay`),
+  generated from a draft in `launcher/splash/`: each `N-name.html` is an
+  800x480 page animated with CSS, and `render.py` steps it frame by frame in
+  headless Chromium into a theme under `launcher/splash/build/<draft>/`
+  (entrance frames played once, then a loop). Installed: `4-bulb-check`.
+- Install with `launcher/splash/install.sh <draft>`. Plymouth runs from the
+  initramfs, so the script rebuilds it in `overlayroot-chroot` (with
+  `MODULES=most` and `FSTYPE=ext4` in a temporary config copy: the Pi's
+  `MODULES=dep` can't find the root device in the chroot, and the fsck hook
+  can't detect its type) and writes it to `initramfs8` on the FAT boot
+  partition itself. It checks the new image holds the draft and `fsck.ext4`
+  before touching the boot partition, and shows a progress card on the
+  Pi's screen while it runs. Backups: `themes/carplay-rings`,
+  `initramfs8.bak`, `cmdline.txt.bak`, `~/.xinitrc.orig`,
+  `~/.bash_profile.orig`.
+- Hand-off to X: `~/.bash_profile` (repo copy `launcher/system/bash_profile`)
+  quits Plymouth with `--retain-splash` and starts Xorg with `-nocursor`, so
+  no pointer is ever drawn. `~/.xinitrc` (`launcher/system/xinitrc`) sets
+  the root background to the theme's `last_frame.png` and runs
+  `launcher/splash/xsplash.py boot`, which keeps the splash loop playing
+  until the launcher writes `/tmp/carplay_pi_launcher_winid` (Chromium takes
+  ~10 s after X starts; without it the screen sat on a still frame).
+  `vt.global_cursor_default=0` on the kernel command line hides the console
+  text cursor.
+
 ## launcher: CarPlay as one app among others
 
 `launcher/` turns this from a single-purpose CarPlay box into a small

@@ -1,0 +1,115 @@
+<!doctype html>
+<!-- Tiles: the home screen assembles itself from the launcher's own markup
+     and stylesheet, then the CarPlay tile's lamp pulses the way it does
+     while an app is launching. The held frame is the launcher minus its
+     live data, so Chromium appearing over it is almost invisible. -->
+<html lang="en" data-intro="1.8" data-loop="1.8">
+<head>
+<meta charset="utf-8">
+<title>Splash: tiles</title>
+<link rel="stylesheet" href="splash.css">
+<style>
+  /* The same grow-in picom gives an app window (96% to 100%). */
+  .tile, .volume > * {
+    animation: grow-in 0.36s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  @keyframes grow-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .hero { animation-delay: 0.1s; }
+  .grid .tile:nth-child(1) { animation-delay: 0.22s; }
+  .grid .tile:nth-child(2) { animation-delay: 0.28s; }
+  .grid .tile:nth-child(3) { animation-delay: 0.34s; }
+  .grid .tile:nth-child(4) { animation-delay: 0.40s; }
+  .grid .tile:nth-child(5) { animation-delay: 0.46s; }
+  .grid .tile:nth-child(6) { animation-delay: 0.52s; }
+  .volume > * { animation-delay: 0.6s; }
+
+  /* The volume track is shown empty: the real level arrives with the launcher. */
+  .vol-track::before { background: var(--panel); }
+
+  /* Hero lights up: icon warms to amber, then the launching pulse. */
+  .hero .hero-icon { animation: warm 0.5s 1.1s ease both; }
+  @keyframes warm { from { color: var(--text); } to { color: var(--amber); } }
+  .hero .lamp {
+    background: var(--amber);
+    opacity: 0;
+    animation: lamp-on 0.4s 1.3s ease-out both, lamp-pulse 0.9s 1.8s ease-in-out infinite;
+  }
+  @keyframes lamp-on {
+    from { opacity: 0; box-shadow: 0 0 0 0 var(--amber-glow); }
+    to { opacity: 1; box-shadow: 0 0 18px 4px var(--amber-glow); }
+  }
+  /* launcher's lamp-pulse, started from its bright end so it meets lamp-on */
+  @keyframes lamp-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 18px 4px var(--amber-glow); }
+    50% { opacity: 0.35; box-shadow: 0 0 6px 0 var(--amber-glow); }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-carplay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.2"/>
+      <path d="M12 9.8V3.5M10.1 13.1 4.8 16.4M13.9 13.1l5.3 3.3"/>
+    </symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/>
+      <path d="M4.5 13.5h1.3M18.2 13.5h1.3M7 8.5l.9.9M16.1 9.4l.9-.9M12 6v1.3"/>
+    </symbol>
+    <symbol id="i-trip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 20V6a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v14M4 20h11M5 11h9"/>
+      <path d="M14 8h2.5a1.5 1.5 0 0 1 1.5 1.5V16a1.5 1.5 0 0 0 3 0V9l-2.5-2.5"/>
+    </symbol>
+    <symbol id="i-logs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M7 9l2.5 2.5L7 14M12 14h5"/>
+    </symbol>
+    <symbol id="i-devices" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>
+    </symbol>
+    <symbol id="i-flappy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 13.5c0-4 3.2-6.5 7-6.5 3.5 0 6 2 6.8 4.5L21 10l-2.6 3.4c-.6 3-3.5 4.6-7.4 4.6-4 0-7-1.7-7-4.5Z"/>
+      <path d="M5.5 13.5c1.5-1.8 4-2 5.5-.5"/><circle cx="14.5" cy="10.5" r=".9" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>
+    </symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- Empty status strip: the clock is not known yet at boot. -->
+<header class="strip"></header>
+
+<main class="view home">
+  <div class="hero tile">
+    <span class="lamp"></span>
+    <svg class="hero-icon"><use href="#i-carplay"/></svg>
+    <span class="hero-name">CarPlay</span>
+    <span class="state"></span>
+  </div>
+  <div class="grid">
+    <div class="tile"><span class="lamp"></span><svg><use href="#i-info"/></svg><span class="tile-name">Info</span></div>
+    <div class="tile"><span class="lamp"></span><svg><use href="#i-trip"/></svg><span class="tile-name">Trip Calc</span></div>
+    <div class="tile"><span class="lamp"></span><svg><use href="#i-logs"/></svg><span class="tile-name">Logs</span></div>
+    <div class="tile"><span class="lamp"></span><svg><use href="#i-devices"/></svg><span class="tile-name">Phones</span></div>
+    <div class="tile"><span class="lamp"></span><svg><use href="#i-flappy"/></svg><span class="tile-name">Flappy Bird</span></div>
+    <div class="tile"><span class="lamp"></span><svg><use href="#i-settings"/></svg><span class="tile-name">Settings</span></div>
+  </div>
+</main>
+
+<footer class="volume">
+  <div class="icon-btn round"><svg><use href="#i-minus"/></svg></div>
+  <svg class="vol-icon"><use href="#i-speaker"/></svg>
+  <div class="vol-track"></div>
+  <span class="vol-value"></span>
+  <div class="icon-btn round"><svg><use href="#i-plus"/></svg></div>
+</footer>
+</body>
+</html>
