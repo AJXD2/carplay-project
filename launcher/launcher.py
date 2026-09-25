@@ -86,7 +86,9 @@ APPS = [
 
 TILE_W, TILE_H = 220, 140
 TILE_GAP = 30
-TILE_Y = 190
+TILE_ROW_GAP = 16
+TILE_Y = 118
+TILES_PER_ROW = 3
 ICON_SIZE = 36
 WELL_SIZE = 60
 
@@ -171,10 +173,17 @@ def hit_rect(pos, rect):
 
 
 def tile_rects():
-    n = len(APPS)
-    total_w = n * TILE_W + (n - 1) * TILE_GAP
-    start_x = (W - total_w) / 2
-    return [(start_x + i * (TILE_W + TILE_GAP), TILE_Y, TILE_W, TILE_H) for i in range(n)]
+    """Rows of up to TILES_PER_ROW tiles, each row centered. A single row of
+    all five tiles is 1220px wide, which put CarPlay off the left edge of
+    the 800px screen."""
+    rects = []
+    for start in range(0, len(APPS), TILES_PER_ROW):
+        n = min(TILES_PER_ROW, len(APPS) - start)
+        total_w = n * TILE_W + (n - 1) * TILE_GAP
+        start_x = (W - total_w) / 2
+        y = TILE_Y + (start // TILES_PER_ROW) * (TILE_H + TILE_ROW_GAP)
+        rects.extend((start_x + i * (TILE_W + TILE_GAP), y, TILE_W, TILE_H) for i in range(n))
+    return rects
 
 
 screen = pygame.display.set_mode((W, H), pygame.NOFRAME)

@@ -15,8 +15,16 @@ def _run(*args):
 
 
 def get_active_window():
+    """The focused window, or None. After the focused app is killed, openbox
+    can keep reporting its (now destroyed) id as active; the next app that
+    starts may then be handed that very same id by X, so treating the dead
+    id as a baseline would make wait_for_new_active_window() miss the new
+    window entirely. A window that no longer exists doesn't count."""
     r = _run("xdotool", "getactivewindow")
-    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+    winid = r.stdout.strip() if r.returncode == 0 else ""
+    if not winid or _run("xdotool", "getwindowname", winid).returncode != 0:
+        return None
+    return winid
 
 
 def get_window_size(winid):
@@ -46,6 +54,32 @@ def wait_for_new_active_window(previous_id, timeout=15.0, interval=0.2, min_w=40
         time.sleep(interval)
         elapsed += interval
     return None
+
+
+def _pid_tree(pid):
+    pids, frontier = [], [str(pid)]
+    while frontier:
+        cur = frontier.pop()
+        pids.append(cur)
+        r = _run("pgrep", "-P", cur)
+        frontier.extend(r.stdout.split())
+    return pids
+
+
+def find_window_for_pid_tree(pid, min_w=400, min_h=300):
+    """Find an already-mapped app window by process rather than by focus
+    change. Used when wait_for_new_active_window() timed out (a slow cold
+    start) but the app came up afterwards: without this, the app's tile
+    would stay dead until the process exited. Walks the whole process tree
+    because an AppImage's window belongs to a child, not the wrapper."""
+    best, best_area = None, 0
+    for p in _pid_tree(pid):
+        r = _run("xdotool", "search", "--onlyvisible", "--pid", p)
+        for winid in r.stdout.split():
+            size = get_window_size(winid)
+            if size and size[0] >= min_w and size[1] >= min_h and size[0] * size[1] > best_area:
+                best, best_area = winid, size[0] * size[1]
+    return best
 
 
 def hide_window(winid):

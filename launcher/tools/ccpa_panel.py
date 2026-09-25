@@ -22,7 +22,7 @@ This is the ONLY known way to edit the dongle's paired-device list
 (`cmd=set item=delDev val=<MAC>`) -- the USB wire protocol has no such
 command. See INFO.md.
 
-Usage (run from a machine on the AutoKit AP, or tunnel via SOCCKS):
+Usage (run from a machine on the AutoKit AP, or tunnel via SOCKS):
     ccpa_panel.py infos                 # full state (CarInfo/BoxInfo/Settings/DevList)
     ccpa_panel.py monitor               # live CPU%/temp/freq/mem/wifi of the dongle
     ccpa_panel.py listdev               # just the paired-device list
@@ -35,7 +35,7 @@ Usage (run from a machine on the AutoKit AP, or tunnel via SOCCKS):
     --host 192.168.43.1   override panel host
     --proxy socks5h://127.0.0.1:1080   route through an SSH -D tunnel
 """
-import argparse, hashlib, json, sys, time, uuid, urllib.request
+import argparse, hashlib, http.client, json, socket, struct, sys, time, uuid, urllib.parse
 
 SALT = "HweL*@M@JEYUnvPw9G36MVB9X6u@2qxK"
 
@@ -62,23 +62,53 @@ def call(cmd, item=None, val=None, *, host="192.168.43.1", proxy=None,
         f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'
         for k, v in fields.items()
     ) + f"--{boundary}--\r\n"
-    url = f"http://{host}/cgi-bin/server.cgi"
-    req = urllib.request.Request(
-        url, data=body.encode(), method="POST",
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
-    opener = urllib.request.build_opener()
-    if proxy:
-        try:
-            from urllib.request import ProxyHandler
-            opener = urllib.request.build_opener(ProxyHandler({"http": proxy}))
-        except Exception:
-            pass
-    with opener.open(req, timeout=timeout) as r:
-        raw = r.read().decode("utf-8", "replace")
+    conn = (SocksHTTPConnection(host, proxy, timeout=timeout) if proxy
+            else http.client.HTTPConnection(host, timeout=timeout))
+    try:
+        conn.request("POST", "/cgi-bin/server.cgi", body=body.encode(),
+                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        resp = conn.getresponse()
+        raw = resp.read().decode("utf-8", "replace")
+    finally:
+        conn.close()
     try:
         return json.loads(raw)
     except ValueError:
         return raw
+
+
+def socks5_connect(proxy, host, port, timeout):
+    """Open a TCP connection to host:port through a SOCKS5 proxy (no auth),
+    e.g. an `ssh -D` tunnel. urllib has no SOCKS support, and this tool stays
+    stdlib-only so it runs on the Pi as-is. The hostname is resolved by the
+    proxy side (socks5h), since 192.168.43.x only exists there."""
+    u = urllib.parse.urlparse(proxy)
+    if u.scheme not in ("socks5", "socks5h"):
+        raise SystemExit(f"unsupported proxy {proxy!r}: use socks5h://host:port")
+    s = socket.create_connection((u.hostname, u.port or 1080), timeout=timeout)
+    s.sendall(b"\x05\x01\x00")                       # v5, 1 method: no auth
+    if s.recv(2) != b"\x05\x00":
+        raise ConnectionError("SOCKS proxy refused no-auth")
+    name = host.encode()
+    s.sendall(b"\x05\x01\x00\x03" + bytes([len(name)]) + name + struct.pack(">H", port))
+    head = s.recv(4)
+    if len(head) < 4 or head[1] != 0:
+        raise ConnectionError(f"SOCKS connect to {host}:{port} failed (code {head[1] if len(head) > 1 else '?'})")
+    # skip the bound address in the reply
+    skip = {1: 4, 4: 16}.get(head[3])
+    if skip is None:
+        skip = s.recv(1)[0]
+    s.recv(skip + 2)
+    return s
+
+
+class SocksHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, host, proxy, **kw):
+        super().__init__(host, **kw)
+        self.proxy = proxy
+
+    def connect(self):
+        self.sock = socks5_connect(self.proxy, self.host, self.port, self.timeout)
 
 
 def main():

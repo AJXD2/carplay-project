@@ -24,21 +24,23 @@ ICON_WARNING="$ICON_DIR/warning.png"
 play_critical_alert() {
   [ -r "$ALERT_SOUND" ] || return 0
 
-  local carplay_idx
-  carplay_idx=$(pactl list sink-inputs 2>/dev/null | awk '
+  # CarPlay opens more than one sink-input, so mute every one of them;
+  # muting only the first still let music play under the beep.
+  local carplay_idxs idx
+  carplay_idxs=$(pactl list sink-inputs 2>/dev/null | awk '
     /^Sink Input #/ { idx=$3; sub("#","",idx) }
     /application.process.binary = "react-carplay"/ { print idx }
-  ' | head -n1)
+  ')
 
-  if [ -n "$carplay_idx" ]; then
-    pactl set-sink-input-mute "$carplay_idx" 1 2>/dev/null
-  fi
+  for idx in $carplay_idxs; do
+    pactl set-sink-input-mute "$idx" 1 2>/dev/null
+  done
 
   paplay --volume=$(( 65536 * ${ALERT_VOLUME%\%} / 100 )) "$ALERT_SOUND" >/dev/null 2>&1
 
-  if [ -n "$carplay_idx" ]; then
-    pactl set-sink-input-mute "$carplay_idx" 0 2>/dev/null
-  fi
+  for idx in $carplay_idxs; do
+    pactl set-sink-input-mute "$idx" 0 2>/dev/null
+  done
 }
 
 notify() {

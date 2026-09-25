@@ -1,0 +1,8 @@
+# ALSA defaults for the Pi user (deployed to ~/.asoundrc by launcher/deploy.sh).
+# Send plain-ALSA programs (arecord, aplay, ...) through PulseAudio, so they
+# use the same default mic and speaker as everything else. The old version
+# pinned `defaults.pcm.card 1`, but card indexes move between boots (1 is
+# now HDMI, which has no capture), and these defaults only accept an index,
+# not a card name.
+pcm.!default { type pulse }
+ctl.!default { type pulse }
