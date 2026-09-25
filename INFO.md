@@ -409,7 +409,10 @@ stack CarPlay's own Electron app already uses reliably on this device.
   window (via `python3-xlib`) so it floats above *any* fullscreen app
   including CarPlay. Tapping it hides whatever's active and shows the
   launcher; nothing gets killed. It only reads the window id in
-  `/tmp/carplay_pi_launcher_winid`.
+  `/tmp/carplay_pi_launcher_winid`. Drawn in the launcher's Dash palette:
+  the face is pre-rendered with PIL (4x, scaled down for smooth edges) and
+  the rounded top corners are cut with the X SHAPE extension. Without PIL it
+  falls back to a plain square panel.
 - **`launcher/launcher.py`** (+ `flappy.py`, `info.py`, `trip.py`,
   `logs.py`): the original pygame implementation. Not autostarted; kept as
   a manual fallback (tiles now laid out in two rows so all five fit the
