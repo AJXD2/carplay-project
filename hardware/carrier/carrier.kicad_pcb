@@ -3643,7 +3643,7 @@
 				)
 			)
 		)
-		(property "Value" "47k"
+		(property "Value" "10k"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "a734ac5a-4182-4865-8c9d-f19ce31c82db")
@@ -3688,7 +3688,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C25819"
+		(property "LCSC" "C25804"
 			(at 0 0 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -3700,7 +3700,7 @@
 				)
 			)
 		)
-		(property "MPN" "0603WAF4702T5E"
+		(property "MPN" "0603WAF1002T5E"
 			(at 0 0 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -4940,7 +4940,7 @@
 				)
 			)
 		)
-		(property "Value" "3.65k"
+		(property "Value" "3.74k"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "e87ca00b-a210-4ba4-a076-bbc65afda4d5")
@@ -4985,7 +4985,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C2930089"
+		(property "LCSC" "C2933210"
 			(at 0 0 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -4997,7 +4997,7 @@
 				)
 			)
 		)
-		(property "MPN" "FRC0603F3651TS"
+		(property "MPN" "FRC0603F3741TS"
 			(at 0 0 0)
 			(layer "F.SilkS")
 			(hide yes)

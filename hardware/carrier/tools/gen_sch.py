@@ -180,7 +180,7 @@ def input_protection(x, y):
     S.wire(sw, r1.pin("1"))
     r2 = R("5.11k")
     r2.move_pin_to("1", r1.pin("2"))
-    r3 = R("3.65k")
+    r3 = R("3.74k")
     r3.move_pin_to("1", r2.pin("2"))
     S.power(r3.pin("2"), "GND")
     S.label(r1.pin("2"), "BATT_MON", (-1, 0), color=COLORS["swc"])
@@ -188,7 +188,7 @@ def input_protection(x, y):
     S.power(u.pin("GND"), "GND")
     S.no_connect(u.pin("RTN"))
     S.text(u.pin("RTN")[0] + 2.54, u.pin("RTN")[1] + 5.08, "EP (RTN) floats: keep it off the GND pour", size=1.27)
-    S.text(x + 2.54, y + 111.76, "OV cutoff = 1.23 V x (95.3k + 5.11k + 3.65k) / 3.65k = 35.1 V.   BATT_MON = VBAT / 11.9 (to ADS1115 AIN2).", size=1.27)
+    S.text(x + 2.54, y + 111.76, "OV cutoff = 1.23 V x (95.3k + 5.11k + 3.74k) / 3.74k = 34.3 V (32.6-36.0 V worst case).   BATT_MON = VBAT / 11.8 (to ADS1115 AIN2).", size=1.27)
     S.text(x + 2.54, y + 114.3, "Inrush slew from the 100R + 22 nF on Q2's gate: ~2.5 V/ms (TAS6424 limit 75 V/ms). "
            "VCAP >= 10 x (Ciss Q1 + Ciss Q2) = 110 nF -> 220 nF.", size=1.27)
     return u
@@ -367,11 +367,11 @@ def power_hold(x, y):
     ctl = COLORS["ctl"]
     S.box(x, y, x + 152.4, y + 109.22, "POWER HOLD + KEY / LIGHTS / REVERSE SENSE", ctl)
     y1, y2 = y + 15.24, y + 25.4
-    # ACC -> D -> 47k -> SYS_EN
+    # ACC -> D -> 10k -> SYS_EN (fills the hold cap in a fraction of a second)
     S.label((x + 10.16, y1), "ACC_IN", (-1, 0), color=ctl, stub=0)
     d1 = S.part("Device:D", ref("D"), "1N4148W", (0, 0), rot=180, footprint="Diode_SMD:D_SOD-123")
     d1.move_pin_to("2", (x + 15.24, y1))
-    r1 = R("47k", rot=90)
+    r1 = R("10k", rot=90)
     r1.move_pin_to("1", (x + 27.94, y1))
     # PI_HOLD -> 1k -> D -> SYS_EN
     S.label((x + 10.16, y2), "PI_HOLD", (-1, 0), color=ctl, stub=0)
@@ -411,10 +411,10 @@ def power_hold(x, y):
 
     S.text(x + 2.54, y + 100.33, "PI_HOLD (GPIO26): config.txt gpio=26=op,dh raises it ~1 s after power-up; "
            "dtoverlay=gpio-poweroff drops it once the Pi halts.", size=1.27)
-    S.text(x + 2.54, y + 102.87, "Key off: the Pi syncs and halts, SYS_EN decays under 1.13 V ~2 s later and the "
-           "LM74800 cuts everything (3 uA standby).", size=1.27)
-    S.text(x + 2.54, y + 105.41, "ACC alone holds SYS_EN ~5 s (100k x 47 uF) so a crank before the Pi boots doesn't "
-           "drop power. BZT52C15 limits load dump on the cap.", size=1.27)
+    S.text(x + 2.54, y + 102.87, "Key off: the Pi halts; SYS_EN falls under 1.13 V 3-5 s later (load off), under 0.3-0.93 V "
+           "after 7-12 s (3 uA standby).", size=1.27)
+    S.text(x + 2.54, y + 105.41, "ACC alone holds SYS_EN 4.7-10 s (100k x 47 uF), even after 0.3 s of ACC, so an early crank "
+           "keeps power. BZT52C15 clamps load dump.", size=1.27)
     S.text(x + 2.54, y + 107.95, "Hung Pi: the BCM watchdog resets it, GPIO26 floats low (100k bleed), and the board "
            "powers off if the key is off.", size=1.27)
 
@@ -678,7 +678,7 @@ def swc_adc(x, y):
     S.junction(top)
     shunt(C("100nF"), (top[0] + 7.62, top[1]))
     S.text(x + 50.8, y + 66.04, "AIN0/1: wheel ladders, learned in software (press each button once).", size=1.27)
-    S.text(x + 50.8, y + 68.58, "AIN2: battery voltage (VBAT / 11.9). I2C address 0x48.", size=1.27)
+    S.text(x + 50.8, y + 68.58, "AIN2: battery voltage (VBAT / 11.8). I2C address 0x48.", size=1.27)
 
 
 # ---------------------------------------------------------- RTC + ID EEPROM ---
@@ -919,7 +919,7 @@ def mic(x, y):
     S.wire((ends["R1"][0], ys[0]), (ends["R1"][0], ys[-1]))
     S.junction((ends["R1"][0], ys[1]))
     S.power((ends["R1"][0], ys[-1]), "GND")
-    S.text(x + 2.54, y + 45.72, "Mic on the tip; ring + sleeve to GND. ~1.2 V bias at 0.5 mA. PCM1808 has no PGA: "
+    S.text(x + 2.54, y + 45.72, "Mic on the tip; ring + sleeve to GND. Bias 1.6-2.6 V (0.5-0.2 mA capsule). PCM1808 has no PGA: "
            "gain in software.", size=1.27)
     S.text(x + 2.54, y + 48.26, "Keep MIC_T / MIC_IN short and over solid GND, away from the amp outputs.", size=1.27)
 
@@ -1038,7 +1038,7 @@ PARTS = {
     ("33R", "R_0603"): ("0603WAF330JT5E", UR, "C23140"),
     ("100R", "R_0603"): ("0603WAF1000T5E", UR, "C22775"),
     ("1k", "R_0603"): ("0603WAF1001T5E", UR, "C21190"),
-    ("3.65k", "R_0603"): ("FRC0603F3651TS", FJ, "C2930089"),
+    ("3.74k", "R_0603"): ("FRC0603F3741TS", FJ, "C2933210"),
     ("3.9k", "R_0603"): ("0603WAF3901T5E", UR, "C23018"),
     ("5.11k", "R_0603"): ("FRC0603F5111TS", FJ, "C2933233"),
     ("10k", "R_0603"): ("0603WAF1002T5E", UR, "C25804"),

@@ -37,12 +37,17 @@ with open("fab/carrier_bom.csv", "w", newline="") as f:
 rows = list(csv.DictReader(open("out/jlc/pos_raw.csv")))
 centre = {r["Ref"]: r for r in csv.DictReader(open("out/jlc/centres.csv"))}
 moved = []
-for r in rows:           # part centres, not KiCad origins (pin 1 on through-hole parts)
+turned = []
+for r in rows:           # JLC's footprint origin and orientation, not KiCad's (tools/jlc_cpl.py)
     c = centre[r["Ref"]]
     if abs(float(c["X"]) - float(r["PosX"])) + abs(float(c["Y"]) - float(r["PosY"])) > 0.01:
         moved.append(r["Ref"])
     r["PosX"], r["PosY"] = c["X"], c["Y"]
+    if float(c["dRot"]):
+        turned.append(r["Ref"])
+        r["Rot"] = f'{(float(r["Rot"]) + float(c["dRot"])) % 360:.6f}'
 print("centred:", ", ".join(sorted(moved)))
+print("turned for JLC's footprints:", ", ".join(sorted(turned)))
 bom = {r.strip() for x in csv.DictReader(open("fab/carrier_bom.csv")) for r in x["Designator"].split(",")}
 with open("fab/carrier_cpl.csv", "w", newline="") as f:
     w = csv.writer(f)

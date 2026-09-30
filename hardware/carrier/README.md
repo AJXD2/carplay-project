@@ -23,10 +23,11 @@ Software for it lives in [`launcher/board/`](../../launcher/board/README.md).
 | Schematic | Done. ERC 0 errors / 0 warnings. |
 | Parts list (BOM) | Done. 148 fitted parts, every one with an LCSC number, stock checked at JLCPCB. |
 | Placement | Done for the nominal Pi position. DRC: no overlaps or clearance errors. |
-| Routing | Done. 0 unrouted, 0 DRC errors (silkscreen tidy pending), schematic parity 0. |
-| Silkscreen tidy | Not started (cosmetic DRC items only). |
+| Routing | Done. 0 unrouted, 0 DRC errors, schematic parity 0. |
+| Silkscreen tidy | Done (10 cosmetic silkscreen warnings left). |
 | Pi position on the screen | Measured on the real screen and confirmed with a printed fit test (see Mechanical). |
 | Software | Written and tested on simulated hardware (18 tests), not installed. |
+| Simulation + assembly check | Done 2026-09-29: SPICE on every analog block, pinouts and land patterns against datasheets, placement file against JLC's footprints ([VERIFICATION.md](VERIFICATION.md)). |
 | Ordering | Not yet. |
 
 ## How it works, block by block
@@ -38,7 +39,7 @@ is split into boxed sections. The same section names tag every part
 | Section | Parts | What it does |
 |---|---|---|
 | Harness | J1, Molex Micro-Fit 3.0 2x10 vertical | Truck wiring in; plug faces the firewall |
-| Input protection | LM74800-Q1 + 2x BUK7Y4R8-60E + SMBJ33CA | Reverse-battery block, cuts off above 35.1 V (load dump), slow soft start (~2.5 V/ms). Its enable (SYS_EN) is the board's master switch |
+| Input protection | LM74800-Q1 + 2x BUK7Y4R8-60E + SMBJ33CA | Reverse-battery block, cuts off above 34.3 V (32.6-36.0 V worst case; load dump), slow soft start (~2.5 V/ms). Its enable (SYS_EN) is the board's master switch |
 | 5 V buck | LM61460-Q1, 4.7 µH | 5 V / 6 A at 400 kHz for Pi, screen (through GPIO pins 2/4 and the display's pogo pins), fans. Turns on at 6.0 V, off at 4.3 V, so it rides through cranking |
 | 3.3 V | TLV75533 | Amp logic, ADC, RTC, EEPROM, clocks |
 | Power hold + sensing | diodes, RC, 3x MMBT3904 | SYS_EN = key OR the Pi's hold line. Key/lights/reverse become active-low 3.3 V inputs |
@@ -72,11 +73,13 @@ is split into boxed sections. The same section names tag every part
   the amp's per-channel volume. The CS2100 clock chip originally planned was
   dropped: JLC only stocks the -10 to 70 °C grade.
 - **One master switch.** The LM74800's enable turns the whole board off.
-  SYS_EN is the OR of the key (with a ~5 s RC grace period so a crank before
-  the Pi boots does not cut power) and the Pi's own hold line (GPIO26). The
-  Pi decides when to power off: key off for 8 s, then it shuts down cleanly,
-  drops the hold line, and the board switches off about 2 s later. A hung Pi
-  is reset by its watchdog, which also drops the hold line.
+  SYS_EN is the OR of the key (with a 4.7-10 s RC grace period so a crank
+  before the Pi boots does not cut power, even when the key goes straight to
+  START) and the Pi's own hold line (GPIO26). The Pi decides when to power
+  off: key off for 8 s, then it shuts down cleanly, drops the hold line, and
+  the board switches off 3-5 s later (3 uA standby after 7-12 s). A hung Pi
+  is reset by its watchdog, which also drops the hold line. Times are from
+  `tools/sim.py` over part tolerances.
 - **Steering wheel by learn mode.** Toyota wheels are resistor ladders on
   two wires. Instead of hard-coding resistor values, the software asks for
   each button once and remembers what it reads. It refuses two buttons it
@@ -273,6 +276,14 @@ grounded through its feet), two M3 threads in the feet, foot height
 2.20 +/-0.05 mm. Also needed: thermal paste (Arctic MX-4 or similar) and two M3 x 5 mm
 screws (they go up through the board into the heatsink).
 
+Order options: 4 layers, **1 oz inner copper** (the default is 0.5 oz; the
++12V_PROT and +5V planes on In2 carry up to ~12 A peak at full volume). In
+JLC's placement preview, check the parts whose footprints JLC draws
+differently from KiCad (`tools/jlc_cpl.py` already corrects the placement
+file for them): BT1 with its + contact on the square pad, J1's latch and the fan headers'
+ramps on the side the silkscreen shows, pin-1 dots on Q1-Q7 and U2-U7, and
+Q1/Q2 sitting centred on their pads (JLC's LFPAK56 pads differ from ours).
+
 ## Files
 
 | Path | What |
@@ -313,6 +324,11 @@ flatpak run --command=python3 org.kicad.KiCad tools/dump_pcb.py   # then:
 kicad-cli pcb export step --subst-models --force -o mech/carrier_board.step carrier.kicad_pcb
 .venv/bin/python tools/assembly.py       # mech/assembly.step/.stl
 .venv/bin/python tools/render3d.py       # out/3d/*.png
+
+tools/jlc_export.sh                      # fab/: Gerbers + drill zip, BOM, CPL
+flatpak run --command=python3 org.kicad.KiCad tools/check_cpl.py --dump   # then:
+.venv/bin/python tools/check_cpl.py      # CPL vs JLC's footprints, exit 1 on a mismatch
+.venv/bin/python tools/sim.py            # SPICE testbenches, out/sim/*.png, exit 1 on a failed check
 ```
 
 What each script owns:
@@ -340,6 +356,13 @@ What each script owns:
   Nothing copper within 3 mm of the outer edge.
 - `autoroute.py` exports to Freerouting (with keepouts guarding the pours)
   and imports the result; `finish.py` maze-routes anything left open.
+- `jlc_export.sh` + `jlc_cpl.py`: order files. `jlc_cpl.py` moves each
+  part to JLC's footprint origin and adds the rotation JLC's footprint needs
+  (`JLC_ROT`, `JLC_ORIGIN`); `check_cpl.py` re-derives both from JLC's
+  footprints and checks `fab/carrier_cpl.csv`.
+- `sim.py` + `ngspice_run.py`: SPICE testbenches for the analog blocks,
+  run in KiCad's bundled ngspice. Values are copied from `gen_sch.py`
+  (constants at the top of `sim.py`); change both together.
 - `heatsink.py`, `assembly.py`, `render3d.py`: mechanical.
 
 ## Verification so far
@@ -356,6 +379,13 @@ What each script owns:
   (a mirrored socket would put 5 V on the wrong pins).
 - Software: 18 tests on simulated hardware, including the GPIO request
   struct compared byte for byte with `<linux/gpio.h>`.
+- SPICE (`tools/sim.py`, 37 checks over tolerance corners): power hold,
+  key/lights/reverse inputs, soft start, OV cutoff, buck UVLO and setpoint,
+  speaker filters, steering-wheel and battery ADC, mic bias, fan PWM.
+- Pinouts of every IC and the land patterns of the LM74800 and LM61460
+  checked against their datasheets; TAS6424 wiring against TI's fig 10-2.
+- Placement file: every part's rotation and centre checked against JLC's
+  own footprint (`tools/check_cpl.py`): 0 mismatches.
 
 ## Open items
 
@@ -363,7 +393,7 @@ What each script owns:
    fits the screen, screw holes, header and port notch exactly.
 2. Measure display thickness and the display-to-Pi standoff height (3D
    model only).
-3. Tidy silkscreen; add the harness pin table next to J1.
+3. ~~Tidy silkscreen; add the harness pin table next to J1~~: done.
 4. Final review (renders, BOM, cost), then order: board + assembly + CNC
    heatsink from JLCPCB.
 5. On first power-up: confirm the react-carplay window class used for
