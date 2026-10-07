@@ -26,4 +26,6 @@ if [ "$1" != noauto ]; then
         kicad-cli pcb drc --schematic-parity --format json -o out/drc.json carrier.kicad_pcb > /dev/null
     done
 fi
+$KPY tools/via_off_pad.py 2>&1 | grep "via_off_pad:\|no free spot"
+kicad-cli pcb drc --schematic-parity --format json -o out/drc.json carrier.kicad_pcb > /dev/null
 python3 tools/drc_summary.py

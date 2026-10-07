@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "skills": {
+    "kicad-bom": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/bom/SKILL.md",
+      "computedHash": "1c9919f0f56d30842af49bc44ab500f30082fa70a9584735305e9fa69fec3bbe"
+    },
+    "kicad-export": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/export/SKILL.md",
+      "computedHash": "65cd5506164dfdf49d9fd88f4152086a91d8000fe372fe0871332a0247934ad1"
+    },
+    "kicad-footprint": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/footprint/SKILL.md",
+      "computedHash": "9a298b0c4180a9f224261af3d80ad094571496f26b0be9e3f7c0a1dd2626a13f"
+    },
+    "kicad-gerbers": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/gerbers/SKILL.md",
+      "computedHash": "fb5ba20578a6837f5f0f0cd8c1f5c1052656c8c72dd9657557d31dddca72c923"
+    },
+    "kicad-layout": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/layout/SKILL.md",
+      "computedHash": "22f06faa4edbb769464161ec8d6dab1a88dfb7210cfb5545983a06e0c3ff851d"
+    },
+    "kicad-panelize": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/panelize/SKILL.md",
+      "computedHash": "6405e98afa3e2ffe4123e568653bea3f7ad67072948970bfcb7cb0482cdff926"
+    },
+    "kicad-pcb": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/pcb/SKILL.md",
+      "computedHash": "3f744ea0af1e1db1d03a103c36aef426f0284668c60e575172871635a91fc17e"
+    },
+    "kicad-schematic": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/schematic/SKILL.md",
+      "computedHash": "7e068578317119cd61c168445d2f3fee78cc03f12fb9d18569bd671f04b62bad"
+    },
+    "kicad-symbol": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/symbol/SKILL.md",
+      "computedHash": "ca871dada2a219b95e635f5006cdfb45314e9efa76e9489b35c7e769dd79defd"
+    },
+    "pcb-product-render": {
+      "source": "American-Embedded/kistack",
+      "sourceType": "github",
+      "skillPath": "skills/pcb-product-render/SKILL.md",
+      "computedHash": "101a24ef1722e571373bf2349677c8f1dd11305b9b8e8af23305e23a3c2fee31"
+    }
+  }
+}

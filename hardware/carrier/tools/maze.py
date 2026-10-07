@@ -23,9 +23,13 @@ class Obstacles:
         self.ox, self.oy = ox, oy
         self.items = {pcbnew.F_Cu: [], pcbnew.B_Cu: []}
         self.drills, self.areas, self.edges = [], [], []
+        self.own_smd = []           # a via may not land on these either (via-in-pad wicks solder)
         for fp in board.GetFootprints():
             for p in fp.Pads():
                 own = p.GetNetname() == netname
+                if own and p.GetAttribute() == pcbnew.PAD_ATTRIB_SMD:
+                    layer = pcbnew.F_Cu if p.IsOnLayer(pcbnew.F_Cu) else pcbnew.B_Cu
+                    self.own_smd.append(p.GetEffectivePolygon(layer, pcbnew.ERROR_INSIDE))
                 for layer in (pcbnew.F_Cu, pcbnew.B_Cu):
                     if p.IsOnLayer(layer) and not own:
                         self.items[layer].append(("poly", p.GetEffectivePolygon(layer, pcbnew.ERROR_INSIDE)))
@@ -72,6 +76,14 @@ class Obstacles:
                 not any((c - P).EuclideanNorm() < rad + reach + pcbnew.FromMM(0.1) for c, rad in self.drills)
         self.cache[key] = ok
         return ok
+
+    def via_ok(self, x, y):
+        """A via here clears every other net and keeps its hole 0.2 mm off
+        the net's own SMD pads."""
+        P = pcbnew.VECTOR2I(pcbnew.FromMM(self.ox + x), pcbnew.FromMM(self.oy + y))
+        if any(p.Collide(P, pcbnew.FromMM(VIA_D / 2 + 0.05)) for p in self.own_smd):
+            return False
+        return self.free(x, y, pcbnew.F_Cu, VIA_D / 2) and self.free(x, y, pcbnew.B_Cu, VIA_D / 2)
 
 
 def route(board, netname, a, b, ox, oy, width=0.25, margin=6.0, layers=(pcbnew.F_Cu, pcbnew.B_Cu),
@@ -154,7 +166,7 @@ def route(board, netname, a, b, ox, oy, width=0.25, margin=6.0, layers=(pcbnew.F
                     back = prev
                 if recent:
                     continue
-                if not (obs.free(px, py, pcbnew.F_Cu, VIA_D / 2) and obs.free(px, py, pcbnew.B_Cu, VIA_D / 2)):
+                if not obs.via_ok(px, py):
                     continue
             elif not obs.free(px, py, nl, r) and not ((near_end and (nx, ny) == sb) or (near_start and (nx, ny) == sa)):
                 continue
