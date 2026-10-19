@@ -9,11 +9,12 @@ firewall. The glass faces -z.
 Sources: display 165 x 103 mm (Hosyond drawing); Pi position from
 place.PI (measured from Hosyond's back-view drawing); Pi 4 outline, holes
 and connectors from the Raspberry Pi 4 mechanical drawing; board from
-KiCad's STEP export; heatsink from tools/heatsink.py. Assumed, not
-measured: display module 6.0 mm thick, Pi standoffs 6.0 mm. Change
-DISPLAY_T / PI_STANDOFF when you can measure them.
+KiCad's STEP export; the rev A stock 20 x 20 x 10 mm heatsink on the amp;
+housing and fans from tools/housing.py. Display 8.25 mm thick and its rear
+parts and M2.5 pillars 4.0 mm on top of that (12.25 mm total) from the
+Hosyond drawing; check against the real screen with calipers.
 
-    .venv/bin/python tools/assembly.py    ->  mech/assembly.step/.stl, out/3d/*.png
+    .venv/bin/python tools/assembly.py    ->  mech/assembly.step/.stl
 """
 import math
 import os
@@ -29,19 +30,23 @@ sys.path.insert(0, HERE)
 # place.py imports pcbnew only for the helpers we do not use here
 import types  # noqa: E402
 sys.modules.setdefault("pcbnew", types.ModuleType("pcbnew"))
-import heatsink  # noqa: E402
 import place  # noqa: E402
 
 DISPLAY_W, DISPLAY_H = 164.9, 102.0   # manufacturer drawing
 DISPLAY_T = 8.25         # glass + LCD + backlight + PCB (drawing; 12.25 incl. rear parts)
-PI_STANDOFF = 6.0        # display back to Pi underside (assumed)
+PI_STANDOFF = 4.0        # display back to Pi underside: the module's own pillars (drawing)
 PI_T = 1.6
 HAT_GAP = 11.0           # Pi top to carrier underside: 2.5 mm header base + 8.5 mm socket
+PI_SPACER = 1.0          # nylon spacer between the Pi and each 11 mm standoff (measured; the stack was loose)
+BOARD_WASHER = 1.0       # nylon washer between each standoff and the carrier (README "Pi standoffs")
 BOARD_T = 1.6
 BOARD_ORIGIN = (100.0, 100.0)   # where gen_pcb puts the board's top-left corner
+AMP_PAD_Z = 2.33         # TAS6424 top (thermal pad) above the board
+HS_TAPE = 0.25           # thermal tape
+HS_W, HS_H = 20.0, 10.0  # rev A stock heatsink
 
 Z_PI = DISPLAY_T + PI_STANDOFF
-Z_BOARD = Z_PI + PI_T + HAT_GAP
+Z_BOARD = Z_PI + PI_T + PI_SPACER + HAT_GAP + BOARD_WASHER
 
 
 def to_asm(bx, by):
@@ -55,8 +60,11 @@ def box(x0, y0, x1, y1, z0, z1):
 
 
 def display():
-    body = box(0, -DISPLAY_H, DISPLAY_W, 0, 0, DISPLAY_T)
-    glass = box(0, -DISPLAY_H, DISPLAY_W, 0, -0.01, 1.2)       # separate so it renders darker
+    # the board outline is the display's, moved by OUTLINE_SHIFT from where the
+    # board's own frame starts
+    x0, y0 = to_asm(*place.OUTLINE_SHIFT)
+    body = box(x0, y0 - DISPLAY_H, x0 + DISPLAY_W, y0, 0, DISPLAY_T)
+    glass = box(x0, y0 - DISPLAY_H, x0 + DISPLAY_W, y0, -0.01, 1.2)   # separate so it renders darker
     return body, glass
 
 
@@ -107,7 +115,7 @@ def standoffs():
         low = (cq.Workplane("XY").polygon(6, 5.0).extrude(PI_STANDOFF)
                .translate((x, y, DISPLAY_T)))
         high = (cq.Workplane("XY").polygon(6, 5.0).extrude(HAT_GAP)
-                .translate((x, y, Z_PI + PI_T)))
+                .translate((x, y, Z_PI + PI_T + PI_SPACER)))
         out += [(f"standoff_low_{hx}_{hy}", low), (f"standoff_high_{hx}_{hy}", high)]
     return out
 
@@ -125,14 +133,16 @@ def coin_cell_stand_in():
 
 
 def heatsink_placed():
-    hs = heatsink.build()
-    if place.AMP_ROT % 180:
-        hs = hs.rotate((0, 0, 0), (0, 0, 1), 90)
+    """Rev A: a stock 20 x 20 x 10 mm heatsink taped onto the chip's top pad
+    (the CNC one in tools/heatsink.py is not fitted)."""
     x, y = to_asm(*place.AMP_AT)
-    return hs.translate((x, y, Z_BOARD + BOARD_T + 2.33))    # base on the chip's top pad
+    z = Z_BOARD + BOARD_T + AMP_PAD_Z + HS_TAPE
+    return box(x - HS_W / 2, y - HS_W / 2, x + HS_W / 2, y + HS_W / 2, z, z + HS_H)
 
 
-def build():
+def build(housing=True, cut=None):
+    """housing: add the printed shell, lid and fans. cut: (axis, value) keeps
+    only what lies beyond that plane, for a section view."""
     body, glass = display()
     asm = cq.Assembly(name="carplay_head_unit")
     asm.add(body, name="display", color=cq.Color(0.10, 0.25, 0.55))
@@ -145,7 +155,31 @@ def build():
     asm.add(carrier(), name="carrier_board")
     asm.add(coin_cell_stand_in(), name="coin_cell", color=cq.Color(0.7, 0.7, 0.7))
     asm.add(heatsink_placed(), name="heatsink", color=cq.Color(0.15, 0.15, 0.15))
+    if housing:
+        import housing as hsg   # imports this module, so not at the top
+        asm.add(hsg.to_asm(hsg.shell()), name="housing_shell", color=cq.Color(0.85, 0.45, 0.1))
+        asm.add(hsg.to_asm(hsg.lid()), name="housing_lid", color=cq.Color(0.85, 0.55, 0.2))
+        for i, f in enumerate(hsg.fans()):
+            asm.add(hsg.to_asm(f), name=f"fan{i + 1}", color=cq.Color(0.45, 0.3, 0.25))
+    if cut:
+        asm = section(asm, *cut)
     return asm
+
+
+def section(asm, axis, v):
+    """A copy of asm with every part cut at axis = v, keeping the + side."""
+    lo = [-1e3, -1e3, -1e3]
+    lo["xyz".index(axis)] = v
+    half = box(lo[0], lo[1], 1e3, 1e3, lo[2], 1e3)
+    out = cq.Assembly(name=asm.name + "_cut")
+    for name, node in asm.traverse():
+        if node.obj is None or name == asm.name:
+            continue
+        shape = node.obj.val() if hasattr(node.obj, "val") else node.obj
+        part = cq.Workplane().add(shape.intersect(half.val()))
+        if part.val().Volume() > 1e-6:
+            out.add(part, name=name, color=node.color)
+    return out
 
 
 def main():

@@ -186,6 +186,46 @@ Audit against datasheets:
 - **Software vs board:** every GPIO in `carrierd.py` matches the netlist (ACC 17, lights 27, reverse 7, amp 22/23/24/25, ADC alert 6, tach 16/4, PWM GPIO12/13 on ALT0). `gpio-poweroff,active_low=1` drives PI_HOLD low only at halt. Amp registers: 0x6A, MISC5 bit 5 set before PLAY, SAP 0x44 = 48 kHz I2S, MISC2 0x62 = 2.11 MHz; channels come up Hi-Z. The 18 board software tests pass.
 - **Tool scripts:** all compile / parse.
 
+## Third pass (2026-10-07): before ordering
+
+Board state: commit f40dfcb. Everything above was re-run or re-derived
+independently against the current files.
+
+### Re-checked, no issue
+
+- ERC 0; DRC 0 errors, 0 unconnected, parity 0 (10 silkscreen warnings).
+- `fab/carrier_gerbers.zip` is byte-identical (timestamps aside) to a fresh
+  export; refilling every zone changes no copper Gerber.
+- BOM re-exported from the schematic matches `fab/carrier_bom.csv`. Board,
+  both BOMs, `fab/carrier_cpl.csv` and `fab/pcbway/carrier_pos.csv` all cover
+  the same 162 parts; the PCBWay file matches the board's positions exactly.
+  `check_cpl.py`: 0 fail; review in JLC's preview: Q1, Q2, and L1 (JLC has no
+  footprint for it).
+- Live stock: ICs, connectors and specialty parts all in stock; lowest
+  LM61460 157, PCM1808 162.
+- Pinouts re-read from the datasheets: TAS6424E (PVDD/VBAT, all 11 GND pins,
+  address pins to GND = 0xD4/0x6A, 1 uF X7R >= 16 V boot caps as the bootstrap section asks), LM74800 (A/VSNS
+  on the battery, VS and C on the common drain, RTN floating), LM61460 (BIAS
+  on 5 V, RBOOT = CBOOT; AFS = FPWM variant), PCM1808 (pin 10 MD0 = 1, pin 11
+  MD1 = 1, pin 12 FMT = 0: master 256 fs, I2S), DS3231, ADS1115, CAT24C32,
+  TLV75533, oscillator, SOT-23 parts, fan headers. Pi header: all 40 pins
+  against the standard pinout.
+- Capacitor voltage vs the net each sits on: 25 V parts only on nets of 15 V
+  or less.
+- Nothing with pin tails or screws over the Pi except J2; H5/H6 are outside
+  its outline. Fan headers and the mic jack sit inside the edge.
+
+### New findings
+
+| # | Finding | Action |
+|---|---|---|
+| I | **Copper under the Pi standoffs.** Within the 2.25-2.9 mm radius an M2.5 head, nut or standoff covers: H1 has I2S_FSYNC (F.Cu, 1.68 mm), ~AMP_MUTE (B.Cu, 1.80 mm), I2C_SDA (B.Cu, 2.28 mm); H4 has +3V3 (F.Cu, 1.80 mm). The Pi's holes are grounded, so worn mask under brass hardware would short them. H2/H3 have only GND nearby. | Rev A: nylon washers on both faces at H1 and H4. Rev B: copper 3 mm clear of the Pi hole centres. |
+| J | **Board support.** Only the four Pi standoffs and J2 hold the board; J1 is 28 mm outside them. Harness insertion force flexes the board near ceramic capacitors. | Support under J1 in the enclosure (or a mounting hole near J1 in rev B). |
+| K | **CNC heatsink dropped** on cost; rev A uses a stock 20 x 20 x 10 mm heatsink with thermal tape on U7. It sits flat (parts under it max 1.8 mm, chip 2.33 mm). Estimated with tape and still air: ~30 K/W, so loud music reaches the 160 C shutdown; with a fan across it, ~100-120 C worst case, inside the software's warning/-6 dB handling. The tape insulates it from GND, which the datasheet requires. | Fan airflow across it; thermal epoxy or a strap through H5/H6 to retain it; ground it (wire or strap to H5/H6). See README "Amp heatsink". |
+
+The heatsink and thermal entries in the second pass above describe the CNC
+heatsink and no longer apply to rev A.
+
 ## Not covered
 
 - Behaviour of the ICs themselves (no usable vendor models).

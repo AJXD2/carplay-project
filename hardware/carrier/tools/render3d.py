@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Shaded PNG views of the 3D assembly (tools/assembly.py) for review.
 
-    .venv/bin/python tools/render3d.py   ->  out/3d/{iso,back,side,top}.png
+    .venv/bin/python tools/render3d.py   ->  out/3d/{iso,back,side,top}.png (no housing),
+                                             out/3d/housing_*.png (housing, fans, section cuts)
 """
 import os
 import sys
@@ -20,10 +21,13 @@ OUT = os.path.join(HERE, "..", "out", "3d")
 LIGHT = np.array([0.4, -0.5, 0.8])
 LIGHT /= np.linalg.norm(LIGHT)
 VIEWS = {"iso": (28, -55), "iso2": (28, -125), "back": (90, -90), "side": (0, 0), "top": (0, -90)}
+HOUSING_VIEWS = {"housing_iso": (28, -55), "housing_iso2": (28, -125), "housing_back": (90, -90)}
+# section cuts (axis, value in the assembly frame) and the view onto the cut face
+CUTS = {"housing_cut_j1": (("x", 93.0), (5, 180)),     # through a lid rib and the J1 ledge
+        "housing_cut_fan1": (("y", -70.0), (5, -90))}  # through fan 1 and the amp heatsink
 
 
-def meshes():
-    asm = assembly.build()
+def meshes(asm):
     out = []
     for name, node in asm.traverse():
         if node.obj is None:
@@ -48,12 +52,10 @@ def shade(tris, col):
     return np.clip(np.outer(k, col), 0, 1)
 
 
-def main():
-    os.makedirs(OUT, exist_ok=True)
-    ms = meshes()
+def render(ms, views):
     allv = np.concatenate([t.reshape(-1, 3) for _, _, t in ms])
     lo, hi = allv.min(0), allv.max(0)
-    for view, (elev, azim) in VIEWS.items():
+    for view, (elev, azim) in views.items():
         fig = plt.figure(figsize=(13, 9), dpi=110)
         ax = fig.add_subplot(111, projection="3d", computed_zorder=True)
         # one collection, so matplotlib depth-sorts every triangle together
@@ -71,6 +73,14 @@ def main():
         fig.savefig(p, facecolor="white")
         plt.close(fig)
         print(os.path.relpath(p))
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    render(meshes(assembly.build(housing=False)), VIEWS)
+    render(meshes(assembly.build()), HOUSING_VIEWS)
+    for name, (cut, view) in CUTS.items():
+        render(meshes(assembly.build(cut=cut)), {name: view})
 
 
 if __name__ == "__main__":

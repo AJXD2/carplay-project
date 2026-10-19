@@ -28,6 +28,7 @@ Software for it lives in [`launcher/board/`](../../launcher/board/README.md).
 | Pi position on the screen | Measured on the real screen and confirmed with a printed fit test (see Mechanical). |
 | Software | Written and tested on simulated hardware (18 tests), not installed. |
 | Simulation + assembly check | Done 2026-09-29: SPICE on every analog block, pinouts and land patterns against datasheets, placement file against JLC's footprints ([VERIFICATION.md](VERIFICATION.md)). |
+| Housing | Designed (`tools/housing.py`): PETG shell + fan lid, clearance-checked against the board, Pi and screen. Not printed yet. |
 | Ordering | Not yet. |
 
 ## How it works, block by block
@@ -52,7 +53,7 @@ is split into boxed sections. The same section names tag every part
 | RTC + ID EEPROM | DS3231SN + CR2032 (0x68), CAT24C32 (0x50) | Clock through power-off; HAT ID per the Raspberry Pi HAT design guide |
 | Pi | J2, 2x20 socket on the underside | Mates with the Pi's header |
 | Fans | 2x 4-pin headers, 2N7002 each | PWM from the Pi, inverted by the FET; tach readback |
-| Debug + mounting | UART header (not fitted), H1-H6 | Pi holes isolated per HAT spec; heatsink screws grounded |
+| Debug + mounting | UART header (not fitted), H1-H6 | Pi holes isolated per HAT spec; H5/H6 are grounded M3 holes beside the amp (heatsink strap or ground wire) |
 
 ## Design decisions and why
 
@@ -92,6 +93,8 @@ is split into boxed sections. The same section names tag every part
   screwed down with M3 screws and Arctic Silver paste; ours is the same
   footprint with fins sized for CNC machining (`tools/heatsink.py`). Its
   feet sit on grounded pads, which grounds the heatsink as TI requires.
+  Rev A skips the CNC part on cost and uses a stock 20 x 20 x 10 mm heatsink
+  instead; see "Amp heatsink" under the shopping list for what that needs.
 - **Part choices for car conditions.** Every IC is rated to at least 85 °C.
   Caps upstream of the 35 V cutoff are 100 V (the TVS can clamp to 53 V),
   the rest of the 12 V side is 50 V X7R. Speaker-filter 1 nF caps are C0G.
@@ -108,8 +111,9 @@ written as notes on the schematic next to each circuit.
 **Display:** Hosyond 7" DSI, **164.9 x 102.0 mm, 12.25 mm thick** per the
 manufacturer's drawing (`datasheets/hosyond/`). The board uses the same
 outline. Its own four mounting holes sit 5 mm in from each corner (154.89 x
-91.92 mm apart): the enclosure screws into those, before the Pi and board go
-on (the board sits ~18 mm above the screen's back, clear of the screw heads).
+91.92 mm apart), each with a 4 mm threaded M2.5 pillar: the housing screws
+onto those before the Pi and board go on (the board sits 12.6 mm above the
+pillar tops, clear of the screw heads).
 
 **Where the Pi sits on the screen.** First estimated from Hosyond's product
 photo (the Pi's 58 x 49 mm hole pattern set the scale), then **measured on
@@ -155,16 +159,20 @@ the Pi's DSI connector clears the display ribbon (HAT spec position).
 
 | Layer | z (mm) | Source |
 |---|---|---|
-| Display module | 0 to 6.0 | **assumed**, measure |
-| Pi standoffs | 6.0 to 12.0 | **assumed**, measure |
-| Pi 4 board | 12.0 to 13.6 | Pi spec |
-| Header base + socket | 13.6 to 24.6 | 2.5 + 8.5 mm, HAT standard (11 mm M2.5 standoffs) |
-| Carrier board | 24.6 to 26.2 | 1.6 mm |
-| Tallest parts on it | to ~39 | 470 µF cap 12.5 mm, harness plug + mated housing |
-| Heatsink fins | to 56.5 | 30.2 mm heatsink |
+| Display module | 0 to 8.25 | Hosyond drawing |
+| Its rear parts and pillars (corner and Pi) | 8.25 to 12.25 | Hosyond drawing (12.25 total); check with calipers |
+| Pi 4 board | 12.25 to 13.85 | Pi spec |
+| Header base + socket | 13.85 to 26.85 | 2.5 + 8.5 mm, HAT standard (11 mm M2.5 standoffs), plus a 1 mm nylon spacer on the Pi (the stack was loose without it) and a 1 mm nylon washer under the carrier ("Pi standoffs" below); the header pins go 4 mm into the socket instead of 6 |
+| Carrier board | 26.85 to 28.45 | 1.6 mm |
+| Tallest parts on it | to ~41 | 470 µF cap 12.5 mm, harness plug + mated housing |
+| Amp heatsink | to 41.0 | 20 x 20 x 10 mm stock heatsink on the 2.33 mm chip + tape |
+| Fans (in the housing lid) | 44 to 54 | Noctua NF-A4x10, 3 mm above the heatsink |
+| Housing lid | 54 to 56.4 | `tools/housing.py` |
 
-Overall **165 x 103 x 56.5 mm**. The heatsink sets the depth; shorter fins
-(e.g. 15 mm) save ~13 mm at some cooling cost, which the fans make up.
+Board stack **165 x 103 x ~41 mm**; in its housing **177 x 108 x 56.4 mm**
+(186 mm wide across the bracket pads). The heatsink, the 470 µF cap and the
+harness plug all end at about the same height. (The CNC heatsink in `mech/`
+would have made the stack 56.5 mm.)
 
 **Fit test before ordering:** `tools/fit_plate.py` writes
 `mech/fit_plate.stl`, a 1.6 mm plate with the board's exact outline, notch,
@@ -172,9 +180,79 @@ cable slot, Pi and heatsink holes and a window for the Pi header. Print it
 text side up, mount it on the Pi with the 11 mm standoffs, and check the
 edges against the screen and the holes against the standoffs.
 
-**3D model:** `tools/assembly.py` builds display + Pi 4 + board + heatsink
-(`mech/assembly.step`, `mech/assembly.stl`; generated, not committed).
-Review images: `out/3d/*.png` via `tools/render3d.py`.
+**Housing.** `tools/housing.py` builds a two-part PETG housing from the same
+numbers as the board (`place.py`, part positions read from
+`carrier.kicad_pcb`) and checks it against the board, Pi, heatsink and screen
+(exit 1 on any clash):
+
+- **Shell** (`mech/housing_shell.stl`): 2.4 mm walls 0.5 mm outside the
+  screen outline, with a skirt down flush with the glass front. The right
+  wall (driver side, seen from the back) is 6.60 mm thicker: the fit ring
+  left that gap in the dash opening. Corner tabs sit on
+  the screen's four pillars (2.9 mm holes, M2.5 x 6 screws). A ledge under the
+  board's top edge either side of J1 (x 90 to 145, stopping 1 mm short of
+  J1's pins) takes the push when the harness goes in: open item 5. Vent
+  slots below the board (Pi level) and above it, an opening in the left wall
+  for the USB cables (CarPlay dongle), and a hole in the right wall for the mic
+  plug (12 mm counterbore through the thick wall). Four M3 heat-set blocks
+  on the top and bottom walls hold the lid; they
+  are kept off the corners so a screwdriver reaches the pillar screws. Two
+  pads with M3 heat-set holes on each side wall (y 25 and 77 mm, 34 mm from
+  the glass) are for dash brackets later.
+- **Lid** (`mech/housing_lid.stl`): both fans hang under it, blowing in.
+  Fan 1 sits over the amp heatsink (the airflow the stock heatsink needs);
+  fan 2 sits over the Pi's port notch, so its air goes down past the jacks,
+  under the board across the Pi, and out of the low vents. Grilles over both,
+  an opening the harness plug passes through (and its latch can be pressed
+  through), and two ribs either side of J1 that stop 0.2 mm above the board
+  so pulling the plug can't lift it. A lip locates it inside the shell.
+- **Fit ring** (`mech/housing_fit_ring.stl`): the bottom 17 mm of the shell,
+  about a fifth of the plastic. Print it first and check the skirt fit and
+  the four pillar screws.
+
+Exhaust (slots + USB opening) is 1.7x the open area of the two fan grilles.
+
+Print in PETG, 0.16 mm layers, 6 walls (the 2.4 mm walls come out solid),
+30% gyroid, textured PEI: the shell on its front rim (screen side down, 5 mm
+outer brim), the lid on its outer face. The lid needs no supports. The shell
+needs them only under the four corner tabs: each is a 10 mm corner overhang
+held by two walls, and its underside is the face that sits on the pillar.
+Paint support enforcers on those four undersides (tree); auto supports miss
+some of them. With an AMS, use PLA for the support interface and accept Bambu
+Studio's suggested settings (0 mm top Z distance, interlaced rectilinear):
+PLA does not bond to PETG, so the tab undersides come out flat. PETG-only
+supports need 0.2 mm top Z distance instead.
+The STEP files are in the assembly frame, for importing into other CAD.
+
+Onshape: the same parts are rebuilt feature by feature in the private
+document "CarPlay Head Unit Housing"
+(<https://cad.onshape.com/documents/92519b2e7fb9667b3fe711ef>), with a fan
+part, a reference part studio (screen, pillars, Pi, HAT standoffs, board with
+its notch and slot, heatsink, J1) and a "Head unit assembly" fastening it all
+together. The shell and lid match `housing.py` to within 1 mm3 in volume, with
+the same face counts and bounding boxes. Those features sit at fixed
+coordinates and are not linked to each other, so `housing.py` stays the master:
+change sizes there, check them with its clearance check, then redo the
+affected features in Onshape.
+
+Hardware: 4x M2.5 x 6 (shell to pillars), 4x M3 x 5.7 heat-set inserts +
+4x M3 x 8 countersunk (lid), the screws in the Noctua box through the lid into
+the fans (or M3 x 16 + nuts), and 4 more M3 inserts if the bracket pads get
+used.
+
+Assembly: screw the shell to the screen, fit the Pi and board as before (the
+board's top edge rests on the ledge), plug the fans into the board, and close
+the lid. Gap check on the bench: the board should sit on the ledge with no
+rocking and the ribs just touching it.
+
+PETG starts to soften around 75 to 80 °C. If it sags in a summer dash,
+reprint the same files in ASA.
+
+**3D model:** `tools/assembly.py` builds display + Pi 4 + board + stock
+heatsink + housing + fans (`mech/assembly.step`, `mech/assembly.stl`;
+generated, not committed). Review images: `out/3d/*.png` via
+`tools/render3d.py`; `housing_cut_j1.png` and `housing_cut_fan1.png` are
+sections through the J1 clamp and through fan 1 and the heatsink.
 
 ## Wiring the truck
 
@@ -265,24 +343,48 @@ From Amazon:
 | 1 | M2.5 standoffs, 11 mm body + 6 mm thread | [B07KM27KC6](https://www.amazon.com/dp/B07KM27KC6) |
 | 2 | Noctua NF-A4x10 5V PWM (each includes an extension cable) | [B07DXS86G7](https://www.amazon.com/dp/B07DXS86G7) |
 | 1 | Posi-Tap 18-24 AWG | [B01HSBYX3I](https://www.amazon.com/dp/B01HSBYX3I) |
-| 1 | 18 AWG wire (reverse run) | [B07D74RGVM](https://www.amazon.com/dp/B07D74RGVM) |
+| 1 | 18 AWG wire (reverse run), solid copper, not CCA | [B07D74RGVM](https://www.amazon.com/dp/B07D74RGVM) |
 | 1 | Heat-shrink assortment | [B01MFA3OFA](https://www.amazon.com/dp/B01MFA3OFA) |
+| 1 | 20 x 20 x 10 mm aluminium heatsinks with thermal tape (one goes on the amp) | |
+| 1 pack | M2.5 nylon washers (see "Pi standoffs" below) | |
+| 1 | Car microphone, 3.5 mm plug, plain 2-wire electret (head-unit type, not USB or a TRRS headset) | |
 | opt. | 4-pin PWM fan extensions | [B0CNLDNZB2](https://www.amazon.com/dp/B0CNLDNZB2) |
 
-With the board order (JLCPCB): the heatsink as a CNC part from
-`mech/heatsink.step` plus `mech/heatsink_drawing.pdf` (threads, tolerances):
-6061-T6 aluminium, **no surface finish** (anodising would insulate it; it is
-grounded through its feet), two M3 threads in the feet, foot height
-2.20 +/-0.05 mm. Also needed: thermal paste (Arctic MX-4 or similar) and two M3 x 5 mm
-screws (they go up through the board into the heatsink).
+**Amp heatsink (rev A).** The CNC heatsink in `mech/` (copied from TI's EVM)
+was dropped on cost. Rev A uses one stock 20 x 20 x 10 mm heatsink centred on
+U7. Parts in that area are at most 1.8 mm tall against the 2.33 mm chip, so it
+sits flat. Anything up to 41 x 20 mm fits (long side along the chip); past
+20 mm the other way it hits the speaker inductors. Three conditions:
+
+- **A fan must blow across it.** In still air with tape, loud music would
+  reach the amp's 160 °C shutdown; with airflow it stays around 100-120 °C,
+  and the software cuts 6 dB on the amp's warning.
+- **Hold it mechanically.** Tape alone can let go in a hot dash and leave a
+  loose aluminium block on the board. Use thermal epoxy instead, or a metal
+  strap across the fins on long M3 screws through H5/H6 (they sit just
+  outside a 20 mm heatsink).
+- **Ground it.** TI requires the heatsink on GND and the tape insulates. A
+  short wire from a fin to H5 or H6 (GND pads; screw + ring terminal), or the
+  metal strap, does it.
+
+**Pi standoffs.** Signal tracks pass under the metal at two Pi holes: at H1,
+I2S_FSYNC (top) and ~AMP_MUTE / I2C_SDA (bottom); at H4, +3V3 (top). The
+Pi's holes are grounded, so a standoff or screw head that wears through the
+mask would short them. Put a nylon washer on both faces of the board at all four
+holes (1 mm, the same on every hole so the board sits level; the housing
+assumes 1 mm under the board). Fix in rev B: keep copper 3 mm from the Pi hole
+centres.
 
 Order options: 4 layers, **1 oz inner copper** (the default is 0.5 oz; the
-+12V_PROT and +5V planes on In2 carry up to ~12 A peak at full volume). In
++12V_PROT and +5V planes on In2 carry up to ~12 A peak at full volume); ENIG
+suits the 0.5 mm WSON/VQFN parts better than HASL. J2 is on the underside, so
+the assembler may ask to confirm assembly on both sides. In
 JLC's placement preview, check the parts whose footprints JLC draws
 differently from KiCad (`tools/jlc_cpl.py` already corrects the placement
 file for them): BT1 with its + contact on the square pad, J1's latch and the fan headers'
 ramps on the side the silkscreen shows, pin-1 dots on Q1-Q7 and U2-U7, and
-Q1/Q2 sitting centred on their pads (JLC's LFPAK56 pads differ from ours).
+Q1/Q2 and L1 sitting centred on their pads (JLC's LFPAK56 pads differ from
+ours; JLC has no footprint for L1 to check against).
 
 ## Files
 
@@ -292,7 +394,8 @@ Q1/Q2 sitting centred on their pads (JLC's LFPAK56 pads differ from ours).
 | `lib/carrier.kicad_sym`, `lib/carrier.pretty/` | Custom symbols and footprints |
 | `lib/ref/` | EasyEDA/JLC reference symbols and footprints used to check pinouts |
 | `datasheets/` | Every datasheet used, plus the HAT mechanical drawing and TI's EVM guide |
-| `mech/heatsink.step`, `.stl` | Heatsink for CNC |
+| `mech/heatsink.step`, `.stl` | CNC heatsink (not used on rev A; stock heatsink instead) |
+| `mech/housing_*.stl`, `.step` | Printed housing: shell, lid, fit ring |
 | `tools/` | Generators and checks (below) |
 | `out/` | Renders, PDF, BOM, reports (generated, not committed) |
 
@@ -322,6 +425,7 @@ flatpak run --command=python3 org.kicad.KiCad tools/dump_pcb.py   # then:
 
 .venv/bin/python tools/heatsink.py       # mech/heatsink.step/.stl
 kicad-cli pcb export step --subst-models --force -o mech/carrier_board.step carrier.kicad_pcb
+.venv/bin/python tools/housing.py        # mech/housing_*.stl/.step + clearance check
 .venv/bin/python tools/assembly.py       # mech/assembly.step/.stl
 .venv/bin/python tools/render3d.py       # out/3d/*.png
 
@@ -363,7 +467,10 @@ What each script owns:
 - `sim.py` + `ngspice_run.py`: SPICE testbenches for the analog blocks,
   run in KiCad's bundled ngspice. Values are copied from `gen_sch.py`
   (constants at the top of `sim.py`); change both together.
-- `heatsink.py`, `assembly.py`, `render3d.py`: mechanical.
+- `heatsink.py`, `housing.py`, `assembly.py`, `render3d.py`: mechanical.
+  `assembly.py` owns the stack heights; `housing.py` takes them from it.
+  Re-export `mech/carrier_board.step` after any board change, before
+  `housing.py` (its clearance check uses it).
 
 ## Verification so far
 
@@ -391,12 +498,17 @@ What each script owns:
 
 1. ~~Fit check~~: done 2026-09-24, the corrected outline (`mech/fit_frame.stl`)
    fits the screen, screw holes, header and port notch exactly.
-2. Measure display thickness and the display-to-Pi standoff height (3D
-   model only).
+2. Display thickness and pillar height now come from Hosyond's drawing
+   (8.25 + 4.0 mm). The housing's corner tabs, J1 ledge and lid ribs depend
+   on them: check glass-to-pillar-top (12.25 mm) with calipers, and print the
+   fit ring before the full housing.
 3. ~~Tidy silkscreen; add the harness pin table next to J1~~: done.
-4. Final review (renders, BOM, cost), then order: board + assembly + CNC
-   heatsink from JLCPCB.
-5. On first power-up: confirm the react-carplay window class used for
+4. ~~Final review~~: done 2026-10-07 ([VERIFICATION.md](VERIFICATION.md),
+   third pass). Order the board + assembly; stock heatsink instead of CNC.
+5. ~~Enclosure: support the board under J1~~: done 2026-10-12, the housing's
+   ledge under J1 and the lid ribs above it (`tools/housing.py`). Not printed
+   yet.
+6. On first power-up: confirm the react-carplay window class used for
    steering-wheel keys, run learn mode, check amp start-up and fault
    handling on real hardware, and check the mic capture path (the overlay
    puts two dummy codecs on one I2S link; set mic gain in software).
