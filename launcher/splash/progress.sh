@@ -18,7 +18,9 @@ onscreen_start() {
   local here
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   ssh "$_ONSCREEN_HOST" "cat > /tmp/xsplash.py" < "$here/xsplash.py" || return 0
-  ssh "$_ONSCREEN_HOST" "rm -f $_ONSCREEN_STATE; DISPLAY=:0 setsid python3 /tmp/xsplash.py progress $_ONSCREEN_STATE '$2' '$3' </dev/null >/tmp/xsplash-progress.log 2>&1 &" || true
+  # The card closes when it finds no state file, so seed one before it
+  # starts; deleting it here let a fast card exit before the first onscreen.
+  ssh "$_ONSCREEN_HOST" "printf '%s\n' '0 2 1 Starting.' > $_ONSCREEN_STATE; DISPLAY=:0 setsid python3 /tmp/xsplash.py progress $_ONSCREEN_STATE '$2' '$3' </dev/null >/tmp/xsplash-progress.log 2>&1 &" || true
 }
 
 onscreen() {
