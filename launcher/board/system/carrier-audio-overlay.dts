@@ -8,9 +8,8 @@
 // in 32-bit slots). Clocks are fixed at 48 kHz, so PulseAudio must run at
 // 48 kHz and resample everything else (default-sample-rate =
 // alternate-sample-rate = 48000 in daemon.conf). The mic has no hardware
-// gain: set it in software. Verify the capture path on the Pi; if this
-// kernel's simple-audio-card rejects two codecs on one link, keep a USB mic
-// until it is sorted.
+// gain: set it in software. Playback and capture are separate dai-links
+// (PCM 0 and PCM 1 of the Carrier card).
 //
 // Build on the Pi:  dtc -@ -I dts -O dtb -o /boot/firmware/overlays/carrier-audio.dtbo carrier-audio-overlay.dts
 /dts-v1/;
@@ -47,16 +46,46 @@
 		__overlay__ {
 			compatible = "simple-audio-card";
 			simple-audio-card,name = "Carrier";
-			simple-audio-card,format = "i2s";
-			simple-audio-card,bitclock-master = <&dailink0_codec>;
-			simple-audio-card,frame-master = <&dailink0_codec>;
 			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-			simple-audio-card,cpu {
-				sound-dai = <&i2s_clk_consumer>;
+			/* One link per direction: with both codecs on one link this
+			 * kernel only offers a direction every codec supports, so
+			 * capture never appeared. Both links share the I2S port. */
+			simple-audio-card,dai-link@0 {
+				reg = <0>;
+				format = "i2s";
+				bitclock-master = <&dailink0_codec>;
+				frame-master = <&dailink0_codec>;
+				playback-only;
+				cpu {
+					sound-dai = <&i2s_clk_consumer>;
+					/* The PCM1808 fixes BCLK at 64 fs: 32-bit slots, or
+					 * the right channel lands in the wrong bits and FR/RR
+					 * play nothing. */
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+				};
+				dailink0_codec: codec {
+					sound-dai = <&carrier_codec>;
+				};
 			};
-			dailink0_codec: simple-audio-card,codec {
-				sound-dai = <&carrier_codec>, <&carrier_mic>;
+
+			simple-audio-card,dai-link@1 {
+				reg = <1>;
+				format = "i2s";
+				bitclock-master = <&dailink1_codec>;
+				frame-master = <&dailink1_codec>;
+				capture-only;
+				cpu {
+					sound-dai = <&i2s_clk_consumer>;
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+				};
+				dailink1_codec: codec {
+					sound-dai = <&carrier_mic>;
+				};
 			};
 		};
 	};
