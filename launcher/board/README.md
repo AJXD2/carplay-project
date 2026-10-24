@@ -23,16 +23,23 @@ check the struct layout byte for byte):
 
 ## Install (once the board is built)
 
-Not part of `deploy.sh` yet, since nothing here should run without the board.
+Not part of `deploy.sh`, since nothing here should run without the board.
+`install.sh [--audio] [--enable] [--reboot] [user@host]` does it with the
+progress card on the Pi's screen, writing through `/media/root-ro`:
+i2c-tools and hwclock, `i2c-dev` at boot, `board/` and `carrierd.service`,
+the audio overlay compiled onto the boot partition, and the lines from
+`system/config.txt` as one managed block in `/boot/firmware/config.txt`
+(backup `config.txt.carrier-bak`). Stages:
 
-1. Append `system/config.txt` to `/boot/firmware/config.txt`.
-2. `sudo apt install device-tree-compiler`, then
-   `sudo dtc -@ -I dts -O dtb -o /boot/firmware/overlays/carrier-audio.dtbo system/carrier-audio-overlay.dts`.
-3. PulseAudio must run at the board's fixed 48 kHz: in `/etc/pulse/daemon.conf`
-   set `default-sample-rate = 48000` and `alternate-sample-rate = 48000`.
-4. Copy `board/` to `/home/ajxd2/launcher/board`, install
-   `system/carrierd.service` to `/etc/systemd/system/`, `systemctl enable carrierd`.
-5. Persist all of the above to `/media/root-ro` (see INFO.md), reboot.
+1. Default: I2C, the GPIO26 power hold, the RTC, fan PWM. CarPlay audio
+   stays on the USB adapter.
+2. `--audio`: adds `dtparam=audio=off` and the carrier-audio overlay. Also
+   set PulseAudio to the board's fixed 48 kHz: in `/etc/pulse/daemon.conf`,
+   `default-sample-rate = 48000` and `alternate-sample-rate = 48000`.
+3. `--enable`: starts carrierd at boot. Until then nothing shuts the Pi
+   down on key-off, and the power hold keeps the board on: don't leave it
+   in the truck like that.
+
 6. Learn the steering wheel: `curl -X POST 127.0.0.1:8735/learn/start`, press
    each button as `GET /state` prompts (`/learn/skip` for buttons the wheel
    lacks). A launcher screen for this comes with the board bring-up.

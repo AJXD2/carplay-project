@@ -1,11 +1,12 @@
-# Carrier board: append to /boot/firmware/config.txt (under [all]).
+# Carrier board: lines for config.txt (under [all]). launcher/board/install.sh
+# writes them as a managed block; this Pi's config is /boot/config.txt.
 # The board's ID EEPROM can carry the same overlays once programmed.
 
 dtparam=i2c_arm=on
 dtparam=audio=off
 
 # PI_HOLD (GPIO26) high as early as the firmware can, then held by
-# gpio-poweroff until the kernel halts; the board cuts power ~2 s later.
+# gpio-poweroff until the kernel halts; the board cuts power 3-5 s later.
 gpio=26=op,dh
 dtoverlay=gpio-poweroff,gpiopin=26,active_low=1
 

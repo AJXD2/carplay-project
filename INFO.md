@@ -359,6 +359,17 @@ sudo overlayroot-chroot apt-get upgrade    # or update-initramfs -u
 sudo umount /media/root-ro/boot/firmware   # chroot leaves it read-only; umount is fine
 ```
 
+`launcher/upgrade.sh [--yes] [user@host]` does all of this for a full
+upgrade, with the progress card on screen: it backs up the boot partition
+to `backups/` on the laptop, upgrades in the chroot, checks the new
+initramfs (fsck, splash theme, overlayroot) and reboots. Two things it
+works around: dpkg replacing files under the live overlay leaves the running
+system unable to start replaced programs (seen as `mount: Permission
+denied`; `sudo`, `systemctl` and anything linked to a replaced libc6 can do
+the same) until the reboot, so the reboot uses `/proc/sysrq-trigger` if
+`systemctl` won't run; and apt is forced to IPv4, because the bench LAN's
+IPv6 route over Ethernet is broken and stalls downloads forever.
+
 ## launcher: CarPlay as one app among others
 
 `launcher/` turns this from a single-purpose CarPlay box into a small

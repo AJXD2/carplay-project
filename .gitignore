@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+
+# Pi boot partition backups and logs from launcher/upgrade.sh
+backups/
+
+# LibreOffice lock files
+.~lock.*#
