@@ -1,0 +1,19 @@
+# tty1 autologin starts the kiosk (installed by launcher/splash/install.sh).
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+  # --retain-splash leaves Plymouth's last frame on screen until X draws,
+  # instead of clearing to the console first.
+  plymouth quit --retain-splash 2>/dev/null
+  for i in 1 2 3 4; do
+    pid=$(cat /run/plymouth/pid 2>/dev/null)
+    [ -z "$pid" ] && break
+    sleep 0.5
+  done
+  # Still running after 2 s: kill it outright. A plain TERM lets plymouthd
+  # tidy up the console on the way out, which clears the screen and made the
+  # handover flicker; KILL leaves its last frame there until X draws.
+  pid=$(cat /run/plymouth/pid 2>/dev/null)
+  [ -n "$pid" ] && sudo kill -KILL "$pid" 2>/dev/null
+  printf "\033[2J\033[H\033[?25l" > /dev/tty1
+  # -nocursor: touch-only screen, never draw a pointer
+  exec startx -- vt1 -keeptty -nocursor >/dev/null 2>&1
+fi

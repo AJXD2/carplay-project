@@ -1,0 +1,12 @@
+# X session for the kiosk (installed by launcher/splash/install.sh).
+# Xorg runs with -nocursor (see bash_profile), so there is no pointer to hide.
+
+# Root background: the splash's held frame, under everything, so nothing
+# ever shows black between windows.
+feh --no-fehbg --bg-fill /usr/share/plymouth/themes/carplay/last_frame.png &
+# Plymouth has to stop before Xorg can take the display, and Chromium needs
+# ~10 s more; keep the splash loop playing until the launcher is up.
+python3 /home/ajxd2/launcher/splash/xsplash.py boot >/tmp/xsplash.log 2>&1 &
+# Compositor for CarPlay fade-in
+picom --config /home/ajxd2/.config/picom/picom.conf -b
+exec openbox-session

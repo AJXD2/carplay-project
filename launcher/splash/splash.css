@@ -1,0 +1,30 @@
+/* Shared base for the boot splash drafts. Each draft is an 800x480 page
+   whose CSS animations render.py steps frame by frame into a Plymouth
+   theme. Timing contract, read by render.py from <html>:
+     data-intro  seconds that play once (the entrance)
+     data-loop   seconds that repeat until X takes over
+   Loop animations start at the intro time and must divide the loop length.
+   Tokens are the launcher's day palette (web/style.css); the splash has no
+   night variant because it runs before anything knows the time. */
+
+/* The launcher stylesheet itself: tokens, fonts, and (for the tiles draft)
+   the real home-screen classes, so geometry can never drift. */
+@import url("/style.css");
+
+html, body {
+  margin: 0;
+  width: 800px;
+  height: 480px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui);
+}
+
+.stage {
+  position: relative;
+  width: 800px;
+  height: 480px;
+}
+
+svg { display: block; overflow: visible; }

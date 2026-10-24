@@ -1,0 +1,114 @@
+<!doctype html>
+<!-- Sweep: the needle does a full-scale sweep and back, the way a real
+     cluster tests its gauges at ignition, then an amber segment runs along
+     the dial while the system comes up. -->
+<html lang="en" data-intro="2.4" data-loop="2.0">
+<head>
+<meta charset="utf-8">
+<title>Splash: sweep</title>
+<link rel="stylesheet" href="splash.css">
+<style>
+  .dial {
+    position: absolute;
+    left: 0; top: 0;
+    transform-origin: 400px 250px;
+    animation: dial-in 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  @keyframes dial-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .track { stroke: var(--rule); stroke-width: 6; fill: none; stroke-linecap: round; }
+  .tick { stroke: var(--steel-dim); stroke-width: 2; stroke-linecap: round; }
+  .tick.major { stroke: var(--steel); stroke-width: 3; }
+
+  /* The fill arc and the needle share keyframes and easing, so the lit
+     part of the dial always ends exactly under the needle. */
+  .fill {
+    stroke: var(--amber); stroke-width: 6; fill: none; stroke-linecap: round;
+    stroke-dasharray: 100 200;
+    stroke-dashoffset: 100;
+    animation: fill-sweep 1.8s 0.3s both;
+  }
+  .needle {
+    transform-origin: 400px 250px;
+    animation: needle-sweep 1.8s 0.3s both;
+  }
+  .needle line { stroke: var(--text); stroke-width: 4; stroke-linecap: round; }
+  @keyframes needle-sweep {
+    0% { transform: rotate(0deg); animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); }
+    45% { transform: rotate(240deg); }
+    55% { transform: rotate(240deg); animation-timing-function: cubic-bezier(0.5, 0, 0.35, 1); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes fill-sweep {
+    0% { stroke-dashoffset: 100; animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); }
+    45% { stroke-dashoffset: 0; }
+    55% { stroke-dashoffset: 0; animation-timing-function: cubic-bezier(0.5, 0, 0.35, 1); }
+    100% { stroke-dashoffset: 100; }
+  }
+
+  .hub { fill: var(--panel-hi); stroke: var(--rule); stroke-width: 2; }
+  .hub-dot { fill: var(--amber); }
+
+  /* Loop: a short lit segment runs the length of the dial. The dash period
+     is 108, so it is fully off the arc at both ends and the loop is seamless. */
+  .runner {
+    stroke: var(--amber); stroke-width: 6; fill: none; stroke-linecap: round;
+    stroke-dasharray: 8 100;
+    stroke-dashoffset: 8;
+    animation: run 2s linear 2.4s infinite;
+  }
+  @keyframes run {
+    from { stroke-dashoffset: 8; }
+    to { stroke-dashoffset: -100; }
+  }
+
+  .name {
+    position: absolute;
+    left: 0; right: 0; top: 318px;
+    text-align: center;
+    font-family: var(--num);
+    font-weight: 600;
+    font-size: 34px;
+    letter-spacing: 0.01em;
+    animation: dial-in 0.4s 0.15s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <svg class="dial" width="800" height="480" viewBox="0 0 800 480">
+    <!-- 240 degree dial, r=150, from lower left (150deg) clockwise to lower right (30deg) -->
+    <path class="track" pathLength="100" d="M270.1 325 A150 150 0 1 1 529.9 325"/>
+    <path class="fill" pathLength="100" d="M270.1 325 A150 150 0 1 1 529.9 325"/>
+    <path class="runner" pathLength="100" d="M270.1 325 A150 150 0 1 1 529.9 325"/>
+    <g id="ticks"></g>
+    <g class="needle">
+      <!-- drawn pointing at the dial's zero (150deg); rotation carries it round -->
+      <line x1="400" y1="250" x2="291.8" y2="312.5"/>
+    </g>
+    <circle class="hub" cx="400" cy="250" r="14"/>
+    <circle class="hub-dot" cx="400" cy="250" r="4"/>
+  </svg>
+  <div class="name">CarPlay</div>
+</div>
+<script>
+  // Ticks inside the track every 20 degrees, a longer one every 60.
+  const g = document.getElementById("ticks");
+  for (let i = 0; i <= 12; i++) {
+    const a = (150 + i * 20) * Math.PI / 180;
+    const major = i % 3 === 0;
+    const r1 = 134, r2 = major ? 116 : 124;
+    const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    l.setAttribute("x1", 400 + r1 * Math.cos(a));
+    l.setAttribute("y1", 250 + r1 * Math.sin(a));
+    l.setAttribute("x2", 400 + r2 * Math.cos(a));
+    l.setAttribute("y2", 250 + r2 * Math.sin(a));
+    l.setAttribute("class", major ? "tick major" : "tick");
+    g.appendChild(l);
+  }
+</script>
+</body>
+</html>

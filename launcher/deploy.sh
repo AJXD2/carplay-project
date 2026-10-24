@@ -31,6 +31,11 @@ REMOTE_ROOT=/media/root-ro
 REMOTE_HOME="$REMOTE_ROOT/home/ajxd2"
 REMOTE_LAUNCHER_DIR="$REMOTE_HOME/launcher"
 
+source "$SCRIPT_DIR/splash/progress.sh"
+onscreen_start "$HOST" "Updating the launcher" "Launcher updated"
+onscreen 2 8 3 "Getting ready. Keep the power on."
+onscreen_fail_on_error
+
 echo "==> Ensuring root-ro is writable on $HOST"
 ssh "$HOST" 'sudo mount -o remount,rw /media/root-ro 2>/dev/null; true'
 
@@ -38,19 +43,25 @@ echo "==> Ensuring chromium is installed (persistent, idempotent)"
 ssh "$HOST" 'command -v chromium >/dev/null || sudo overlayroot-chroot apt-get install -y chromium'
 
 echo "==> Copying launcher files"
+onscreen 10 30 5 "Copying the launcher. Keep the power on."
 # One tar stream instead of an ssh per file; picks up subdirectories
 # (web/fonts) automatically. --overwrite rewrites existing files in place:
 # replacing them with new inodes (tar's default) leaves the running
 # overlay serving the old cached copy until the next reboot.
 tar -C "$SCRIPT_DIR" --exclude=__pycache__ -cf - \
     wm_helper.py dongle.py persist.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py \
-    web assets/icons tools \
+    web assets/icons tools splash/xsplash.py \
   | ssh "$HOST" "sudo mkdir -p $REMOTE_LAUNCHER_DIR && sudo tar -C $REMOTE_LAUNCHER_DIR --no-same-owner --overwrite -xf -"
 ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $REMOTE_LAUNCHER_DIR"
 
+onscreen 35 50 5 "Updating CarPlay. Keep the power on."
 echo "==> Installing the audio-patched react-carplay (idempotent; see tools/patch_carplay_audio.py)"
 ssh "$HOST" "sudo python3 $REMOTE_LAUNCHER_DIR/tools/patch_carplay_audio.py"
+# The patcher remounts root-ro read-only when it's done, which succeeds on a
+# freshly booted Pi; the steps below still need to write through it.
+ssh "$HOST" 'sudo mount -o remount,rw /media/root-ro 2>/dev/null; true'
 
+onscreen 55 60 2 "Updating audio and effects settings."
 echo "==> Installing ~/.asoundrc (USB audio adapter by name)"
 ssh "$HOST" "sudo tee $REMOTE_HOME/.asoundrc >/dev/null && sudo chown ajxd2:ajxd2 $REMOTE_HOME/.asoundrc" < "$SCRIPT_DIR/system/asoundrc"
 
@@ -109,6 +120,7 @@ echo "==> Attempting to remount root-ro back to read-only (best effort)"
 ssh "$HOST" 'sudo mount -o remount,ro /media/root-ro 2>&1 || echo "  (kernel wont allow remount while overlay active this boot -- fine, resets clean on next reboot)"'
 
 echo "==> Restarting the launcher stack"
+onscreen 70 95 6 "Restarting the launcher. CarPlay will reconnect."
 # Once --autostart has been applied, server.py runs under a respawn loop in
 # openbox autostart. In that case, kill the stack and let the loop bring
 # server.py back (it clears out stale Chromium/CarPlay itself on startup);
@@ -150,3 +162,6 @@ else
   '
   echo "==> Done. Deployed and running live. Re-run with --autostart once verified to make it boot-persistent."
 fi
+
+trap - ERR
+onscreen 100 100 1 "The home screen is back in a few seconds."
