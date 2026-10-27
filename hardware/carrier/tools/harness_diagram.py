@@ -5,7 +5,9 @@ View: the WIRE side of the plug while it is plugged in, looking down at the
 board's component side with J1 along the top edge (as in the assembly
 drawing). Pin 1 is top left; pins 1-10 run left to right along the row
 nearest the board edge, 11-20 below them. Speaker pins checked on board 2
-(BRINGUP.md stage 7). Colours are the EIA colours on Metra harnesses.
+(BRINGUP.md stage 7). Wires come from the Klintotour Toyota adapter's
+16-pin Android end (cut off), which uses the usual Android colour code:
+the EIA power and speaker colours plus brown / brown-white for the wheel.
 
     .venv/bin/python tools/harness_diagram.py
 """
@@ -20,29 +22,29 @@ OUT = Path(__file__).resolve().parent.parent / "out" / "harness.png"
 
 C = {"yellow": "#f2d600", "black": "#222222", "red": "#d62828", "orange": "#f77f00",
      "white": "#f4f4f4", "gray": "#9a9a9a", "purple": "#7b2cbf", "green": "#2b9348",
-     "pink": "#ff8fab", "none": "#d9d9d9", "swc": "#4ea8de"}
+     "pink": "#ff8fab", "none": "#d9d9d9", "brown": "#7f4f24"}
 
 # pin: (signal, short label, wire colour, stripe colour or None, where it comes from)
 PINS = {
-    1: ("+12 V constant", "+12V", "yellow", None, "Metra yellow (split: one lead to 1, one to 11)"),
-    2: ("Ground", "GND", "black", None, "Metra black (split to 2, 12, 19)"),
-    3: ("Front right +", "FR+", "gray", None, "Metra gray"),
-    4: ("Front left +", "FL+", "white", None, "Metra white"),
-    5: ("Rear right +", "RR+", "purple", None, "Metra purple"),
-    6: ("Rear left +", "RL+", "green", None, "Metra green"),
-    7: ("Key / ACC", "ACC", "red", None, "Metra red"),
-    8: ("Steering wheel 1 (seek, volume)", "SWC1", "swc", None, "KEY1 from the white 20-pin plug (find with a meter)"),
-    9: ("Steering wheel ground", "SWC GND", "swc", "black", "Wheel ground if the wheel has its own; else a short link to ground"),
-    10: ("Reverse (+12 V in reverse)", "REV", "pink", None, "Adapter's pink BACK wire, or a Posi-Tap on the reverse light"),
-    11: ("+12 V constant", "+12V", "yellow", None, "Metra yellow (second lead)"),
-    12: ("Ground", "GND", "black", None, "Metra black (second lead)"),
-    13: ("Front right -", "FR-", "gray", "black", "Metra gray/black"),
-    14: ("Front left -", "FL-", "white", "black", "Metra white/black"),
-    15: ("Rear right -", "RR-", "purple", "black", "Metra purple/black"),
-    16: ("Rear left -", "RL-", "green", "black", "Metra green/black"),
-    17: ("Headlights / illumination", "ILLUM", "orange", None, "Metra orange (or orange/white)"),
-    18: ("Steering wheel 2 (mode)", "SWC2", "swc", None, "KEY2 from the white 20-pin plug (find with a meter)"),
-    19: ("Ground", "GND", "black", None, "Metra black (third lead)"),
+    1: ("+12 V constant", "+12V", "yellow", None, "Yellow (split: one lead to 1, one to 11)"),
+    2: ("Ground", "GND", "black", None, "Black (split to 2, 12, 19)"),
+    3: ("Front right +", "FR+", "gray", None, "Gray"),
+    4: ("Front left +", "FL+", "white", None, "White"),
+    5: ("Rear right +", "RR+", "purple", None, "Purple"),
+    6: ("Rear left +", "RL+", "green", None, "Green"),
+    7: ("Key / ACC", "ACC", "red", None, "Red"),
+    8: ("Steering wheel 1 (seek, volume)", "KEY1", "brown", None, "Brown (Toyota 20-pin #7, SW1)"),
+    9: ("Steering wheel ground", "(SWC GND)", "none", None, "Leave empty: the adapter ties the wheel ground (20-pin #6) to black"),
+    10: ("Reverse (+12 V in reverse)", "REV", "pink", None, "Pink loose lead tagged BACK, spliced to the reverse light feed"),
+    11: ("+12 V constant", "+12V", "yellow", None, "Yellow (second lead)"),
+    12: ("Ground", "GND", "black", None, "Black (second lead)"),
+    13: ("Front right -", "FR-", "gray", "black", "Gray/black"),
+    14: ("Front left -", "FL-", "white", "black", "White/black"),
+    15: ("Rear right -", "RR-", "purple", "black", "Purple/black"),
+    16: ("Rear left -", "RL-", "green", "black", "Green/black"),
+    17: ("Headlights / illumination", "ILLUM", "orange", None, "Orange"),
+    18: ("Steering wheel 2 (mode)", "KEY2", "brown", "white", "Brown/white (Toyota 20-pin #8, SW2)"),
+    19: ("Ground", "GND", "black", None, "Black (third lead)"),
     20: ("Not used", "-", "none", None, "Leave empty"),
 }
 
@@ -54,15 +56,15 @@ def cavity(ax, x, y, pin):
     if stripe:                                   # tracer stripe: bands down both sides
         for sx in (x + 0.06, x + 0.82):
             ax.add_patch(Rectangle((sx, y + 0.1), 0.12, 0.8, fc=C[stripe], ec="none"))
-    dark = col in ("black", "purple", "green", "red")
+    dark = col in ("black", "purple", "green", "red", "brown")
     tc = "white" if dark else "black"
     ax.text(x + 0.5, y + 0.68, str(pin), ha="center", va="center", fontsize=13, weight="bold", color=tc)
     ax.text(x + 0.5, y + 0.3, short, ha="center", va="center", fontsize=7.5, color=tc)
 
 
 def main():
-    fig = plt.figure(figsize=(13, 9.6), dpi=150)
-    ax = fig.add_axes([0.03, 0.55, 0.94, 0.42])
+    fig = plt.figure(figsize=(13, 10.4), dpi=150)
+    ax = fig.add_axes([0.03, 0.58, 0.94, 0.4])
     ax.set_xlim(-0.6, 13.2)
     ax.set_ylim(-1.3, 3.6)
     ax.set_aspect("equal")
@@ -93,10 +95,10 @@ def main():
     ax.text(-0.3, -1.05, "Pin 1 = top left. Check against the numbers moulded on the Molex housing before "
             "pushing pins in. The plug is keyed, so it only mates one way.", fontsize=9.5)
 
-    tx = fig.add_axes([0.03, 0.02, 0.94, 0.5])
+    tx = fig.add_axes([0.03, 0.1, 0.94, 0.46])
     tx.axis("off")
     rows = [[str(p), s[0], s[4]] for p, s in PINS.items()]
-    tab = tx.table(cellText=rows, colLabels=["Pin", "Signal", "Wire"], loc="upper left",
+    tab = tx.table(cellText=rows, colLabels=["Pin", "Signal", "Adapter wire (16-pin Android end, plug cut off)"], loc="upper left",
                    colWidths=[0.05, 0.27, 0.68], cellLoc="left")
     tab.auto_set_font_size(False)
     tab.set_fontsize(9)
@@ -109,11 +111,13 @@ def main():
         elif c == 0:
             col = PINS[r][2]
             cell.set_facecolor(C[col])
-            cell.set_text_props(color="white" if col in ("black", "purple", "green", "red") else "black",
+            cell.set_text_props(color="white" if col in ("black", "purple", "green", "red", "brown") else "black",
                                 weight="bold")
-    tx.text(0, -0.04, "Not used from the Metra harness: blue (power antenna), blue/white (amp turn-on). "
-            "Cap them. Use 18 AWG pre-crimped Micro-Fit leads (Molex 2147611124); solder and heat-shrink "
-            "each joint.", fontsize=9, transform=tx.transAxes, va="top")
+    fig.text(0.04, 0.075, "Not used: blue (antenna / amp remote) and anything else on the 16-pin. Cap them. "
+            "Colours, not positions in the 16-pin shell,\nidentify the wires; check KEY1/KEY2 with a meter "
+            "(resistance to black changes with the wheel buttons).\nUse 18 AWG pre-crimped Micro-Fit leads "
+            "(Molex 2147611124); solder and heat-shrink each joint. Before plugging in: no continuity "
+            "between +12 V (1, 11) and ground (2, 12, 19).", fontsize=9, va="top")
     OUT.parent.mkdir(exist_ok=True)
     fig.savefig(OUT)
     print(OUT)

@@ -256,49 +256,53 @@ sections through the J1 clamp and through fan 1 and the heatsink.
 
 ## Wiring the truck
 
-The truck has three plugs behind the radio: two yellowish ones (power,
-speakers; what the Metra harness mates with) and a white 20-pin one that
-carries the steering-wheel wires. Build one Micro-Fit plug that gathers
-them all:
+The truck has three plugs behind the radio: a 10-pin (power, front
+speakers, illumination) and a 6-pin (rear speakers), both yellowish, plus
+a white 20-pin that carries the steering-wheel wires. The Klintotour Toyota
+adapter mates with all three; nothing on the truck gets cut. Cut the 16-pin
+Android plug off the adapter's far end and crimp its wires into the
+Micro-Fit plug (diagram: `tools/harness_diagram.py`, writes
+`out/harness.png`).
 
-- Power and speakers: the Metra harness wires, or the Klintotour adapter
-  (which also has the white 20-pin plug). Either way the loose ends go into
-  the Micro-Fit plug; nothing on the truck gets cut.
-- Steering wheel: the Klintotour adapter's white-plug wires, cut from its
-  16-pin end. Identify KEY1 and KEY2 with a meter (see below).
-- Reverse: tap the truck's reverse-light wire (Posi-Tap) and run a wire to
-  pin 10.
+The adapter's 16-pin end uses the usual Android colour code: the EIA power
+and speaker colours, brown and brown/white for the wheel, and a loose pink
+lead tagged BACK for reverse. Wire positions inside that 16-pin shell vary
+between makers, so go by colour. On the Toyota side the wheel is 20-pin #7
+(SW1: seek, volume), #8 (SW2: mode, phone, voice) and #6 (its ground,
+which the adapter joins to black). Only non-JBL trucks: the adapter does
+not work with the JBL amplifier.
 
 To build the plug: solder each wire to a pre-crimped Micro-Fit lead,
 heat-shrink it, and push the pin into its numbered hole until it clicks.
-Pin n sits directly above pin n+10. The speaker order (FR, FL, RR, RL) is
-not a typo: it matches the amp's output order on the board, so the four
-speaker tracks run straight to the plug without crossing.
+Pin n sits directly above pin n+10. Use both +12 V pins and at least two
+grounds: loud music peaks at 10 to 12 A, more than one Micro-Fit contact
+is rated for. The speaker order (FR, FL, RR, RL) is not a typo: it matches
+the amp's output order on the board, so the four speaker tracks run
+straight to the plug without crossing.
 
-| Pin | Signal | Typical wire colour |
+| Pin | Signal | Adapter wire |
 |---|---|---|
 | 1, 11 | +12 V constant | Yellow |
 | 2, 12, 19 | Ground | Black |
 | 7 | Key / accessory | Red |
 | 17 | Headlights on (illumination) | Orange |
-| 10 | Reverse (+12 V in reverse) | Pink "BACK" on the adapter, or your own wire |
-| 8 | Steering wheel wire 1 (seek, volume) | KEY1 |
-| 18 | Steering wheel wire 2 (mode) | KEY2 |
-| 9 | Steering wheel ground | if separate; otherwise tie to ground |
+| 10 | Reverse (+12 V in reverse) | Pink, tagged BACK; splice to the reverse-light feed |
+| 8 | Steering wheel 1 (seek, volume) | Brown (KEY1) |
+| 18 | Steering wheel 2 (mode) | Brown/white (KEY2) |
+| 9 | Steering wheel ground | Leave empty (the adapter grounds the wheel through black) |
 | 3 / 13 | Front right + / − | Gray / gray-black |
 | 4 / 14 | Front left + / − | White / white-black |
 | 5 / 15 | Rear right + / − | Purple / purple-black |
 | 6 / 16 | Rear left + / − | Green / green-black |
 | 20 | Not used | |
 
-Finding KEY1 / KEY2: adapter plugged into the truck, key off, meter on
-ohms between each candidate wire and ground. The wire whose reading
-changes with seek/volume is KEY1 (pin 8); the one that drops near 0 Ω on
-Mode is KEY2 (pin 18). Earlier measurements on the purple SWC wire: seek+
-~0 Ω, seek− 331 Ω, vol+ 100 Ω, vol− "3.111" (unit unclear). Learn mode
-makes the exact values irrelevant.
-
-Blue wires (power antenna, amp turn-on) are not used.
+Blue (antenna / amp turn-on) and anything else on the 16-pin are not used:
+cap them. Before the first plug-in, check with a meter that +12 V (1, 11)
+has no continuity to ground (2, 12, 19), and confirm KEY1 / KEY2: adapter
+in the truck, key off, ohms from brown and from brown/white to black; the
+reading changes as the wheel buttons are pressed. Earlier measurements on
+the purple SWC wire: seek+ ~0 Ω, seek− 331 Ω, vol+ 100 Ω, vol− "3.111"
+(unit unclear). Learn mode makes the exact values irrelevant.
 
 ## Pi GPIO map
 
