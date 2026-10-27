@@ -1,0 +1,3 @@
+# PulseAudio's udev-detect leaves the Carrier card alone; carrier.pa opens
+# its playback and capture PCMs at the board's fixed 48 kHz instead.
+SUBSYSTEM=="sound", KERNEL=="card*", ATTR{id}=="Carrier", ENV{PULSE_IGNORE}="1"

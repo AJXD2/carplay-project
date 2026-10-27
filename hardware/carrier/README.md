@@ -343,7 +343,7 @@ From Amazon:
 | 1 | M2.5 standoffs, 11 mm body + 6 mm thread | [B07KM27KC6](https://www.amazon.com/dp/B07KM27KC6) |
 | 2 | Noctua NF-A4x10 5V PWM (each includes an extension cable) | [B07DXS86G7](https://www.amazon.com/dp/B07DXS86G7) |
 | 1 | Posi-Tap 18-24 AWG | [B01HSBYX3I](https://www.amazon.com/dp/B01HSBYX3I) |
-| 1 | 18 AWG wire (reverse run), solid copper, not CCA | [B07D74RGVM](https://www.amazon.com/dp/B07D74RGVM) |
+| 1 | 18 AWG wire (reverse run), stranded pure copper (not CCA: copper-clad aluminium); splice solid core to a stranded tail before any pin or Posi-Tap | [B07D74RGVM](https://www.amazon.com/dp/B07D74RGVM) |
 | 1 | Heat-shrink assortment | [B01MFA3OFA](https://www.amazon.com/dp/B01MFA3OFA) |
 | 1 | 20 x 20 x 10 mm aluminium heatsinks with thermal tape (one goes on the amp) | |
 | 1 pack | M2.5 nylon washers (see "Pi standoffs" below) | |

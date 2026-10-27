@@ -15,7 +15,9 @@
 #
 # Stages (BRINGUP.md): the default block has I2C, the GPIO26 power hold, the
 # RTC and fan PWM. --audio adds dtparam=audio=off and the carrier-audio
-# overlay; leave it out while CarPlay still plays through the USB adapter.
+# overlay, and makes the board PulseAudio's default speaker and mic at
+# 48 kHz (system/carrier.pa, 89-carrier-pulse.rules); leave it out while
+# CarPlay still plays through the USB adapter.
 # enable_uart is left out: the UART header J3 is not fitted.
 #
 # The FAT boot partition is not mounted under overlayroot, so it is mounted
@@ -67,6 +69,7 @@ ssh "$HOST" "test -x $RO/usr/sbin/i2cdetect -a -x $RO/usr/sbin/hwclock || { sudo
 ssh "$HOST" "test -x $RO/usr/sbin/i2cdetect -a -x $RO/usr/sbin/hwclock" || { echo "i2c-tools/hwclock did not install" >&2; false; }
 echo i2c-dev | ssh "$HOST" "sudo tee $RO/etc/modules-load.d/carrier-i2c.conf >/dev/null"
 
+ssh "$HOST" "sudo mount -o remount,rw $RO 2>/dev/null; true"   # after the chroot above
 echo "==> Copying board/ and the carrierd unit"
 onscreen 40 55 3 "Copying the board software. Keep the power on."
 tar -C "$SCRIPT_DIR/.." --exclude=__pycache__ -cf - board \
@@ -76,6 +79,41 @@ if $ENABLE; then
   ssh "$HOST" "sudo overlayroot-chroot systemctl enable carrierd"
   ssh "$HOST" "test -L $RO/etc/systemd/system/multi-user.target.wants/carrierd.service" \
     || { echo "carrierd was not enabled" >&2; false; }
+fi
+
+# overlayroot-chroot remounts root-ro read-only when it exits
+rw() { ssh "$HOST" "sudo mount -o remount,rw $RO 2>/dev/null; true"; }
+
+if $AUDIO; then
+  rw
+  echo "==> PulseAudio: the board as default speaker and mic, 48 kHz"
+  onscreen 50 55 2 "Setting up the board audio."
+  ssh "$HOST" "sudo mkdir -p $RO/etc/pulse/default.pa.d && sudo tee $RO/etc/pulse/default.pa.d/carrier.pa >/dev/null" \
+    < "$SCRIPT_DIR/system/carrier.pa"
+  ssh "$HOST" "sudo tee $RO/etc/udev/rules.d/89-carrier-pulse.rules >/dev/null" < "$SCRIPT_DIR/system/89-carrier-pulse.rules"
+  ssh "$HOST" bash -s <<REMOTE_EOF
+set -e
+PA=$RO/etc/pulse
+# default.pa must pull in the drop-in directory
+sudo grep -q '^\.include /etc/pulse/default.pa.d' \$PA/default.pa || echo '.include /etc/pulse/default.pa.d' | sudo tee -a \$PA/default.pa >/dev/null
+# the board runs at 48 kHz only: no resampling to 44.1 kHz streams' rate
+for k in default-sample-rate alternate-sample-rate; do
+  if sudo grep -q "^[;#]* *\$k *=" \$PA/daemon.conf; then
+    sudo sed -i "s/^[;#]* *\$k *=.*/\$k = 48000/" \$PA/daemon.conf
+  else
+    echo "\$k = 48000" | sudo tee -a \$PA/daemon.conf >/dev/null
+  fi
+done
+grep -E '^(default|alternate)-sample-rate' \$PA/daemon.conf
+# ~/.config/pulse/default.pa (hand-made, not in the repo) pinned the default
+# sink to the USB adapter and runs after the drop-in: drop that line, once
+# backed up.
+U=$RO_HOME/.config/pulse/default.pa
+if sudo grep -q '^set-default-sink' \$U 2>/dev/null; then
+  sudo test -f \$U.usb-adapter || sudo cp -p \$U \$U.usb-adapter
+  sudo sed -i '/^set-default-sink/d' \$U
+fi
+REMOTE_EOF
 fi
 
 echo "==> Compiling the audio overlay"

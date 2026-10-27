@@ -33,9 +33,13 @@ the audio overlay compiled onto the boot partition, and the lines from
 
 1. Default: I2C, the GPIO26 power hold, the RTC, fan PWM. CarPlay audio
    stays on the USB adapter.
-2. `--audio`: adds `dtparam=audio=off` and the carrier-audio overlay. Also
-   set PulseAudio to the board's fixed 48 kHz: in `/etc/pulse/daemon.conf`,
-   `default-sample-rate = 48000` and `alternate-sample-rate = 48000`.
+2. `--audio`: adds `dtparam=audio=off` and the carrier-audio overlay, and
+   makes the board PulseAudio's default speaker (`carrier`) and mic
+   (`carrier_mic`: mono, left ADC slot, +20 dB) at 48 kHz:
+   `system/carrier.pa` as `/etc/pulse/default.pa.d/carrier.pa`, a udev rule
+   so udev-detect leaves the card alone, both sample rates 48000 in
+   `daemon.conf`, and the USB adapter's `set-default-sink` line taken out of
+   `~/.config/pulse/default.pa` (backup `default.pa.usb-adapter`).
 3. `--enable`: starts carrierd at boot. Until then nothing shuts the Pi
    down on key-off, and the power hold keeps the board on: don't leave it
    in the truck like that.

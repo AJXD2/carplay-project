@@ -1,0 +1,21 @@
+# Carrier board audio for PulseAudio, installed by `install.sh --audio` as
+# /etc/pulse/default.pa.d/carrier.pa.
+#
+# udev-detect skips the Carrier card (89-carrier-pulse.rules): playback and
+# capture are separate PCMs it does not probe properly, and it opened the
+# capture side at 44.1 kHz. The board clocks everything at 48 kHz, 32-bit
+# slots, so both are opened here at exactly that.
+#
+# .nofail: if the card is missing (overlay not loaded), PulseAudio still
+# starts with everything else.
+.nofail
+load-module module-alsa-sink device=hw:CARD=Carrier,DEV=1 sink_name=carrier sink_properties=device.description=Carrier rate=48000 format=s32le channels=2 tsched=0
+load-module module-alsa-source device=hw:CARD=Carrier,DEV=0 source_name=carrier_in source_properties=device.description=Carrier_ADC rate=48000 format=s32le channels=2 tsched=0
+# The mic is on the PCM1808's left input only: a mono source from that slot.
+load-module module-remap-source master=carrier_in source_name=carrier_mic source_properties=device.description=Carrier_mic channels=1 master_channel_map=front-left channel_map=mono
+# The PCM1808 has no gain stage: +20 dB in software (215 % on PulseAudio's
+# cubic scale; 65536 = 100 %).
+set-source-volume carrier_mic 140902
+set-default-sink carrier
+set-default-source carrier_mic
+.fail
