@@ -312,10 +312,69 @@ function renderInfo(d) {
     ["Cleared on reboot", d.overlay ? fmtBytes(d.overlay.used) : "--"],
     ["Host", d.hostname],
   ];
-  $("info-list").innerHTML = facts
-    .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`)
-    .join("");
+  $("info-list").innerHTML = factsHtml(facts);
+  renderCar(d);
 }
+
+const factsHtml = (facts) =>
+  facts.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join("");
+
+// Car tab: the carrier board, through carrierd's state (null when the
+// board service isn't running).
+function renderCar(d) {
+  const b = d.board;
+  const v = b && b.battery_v;
+  setGauge("g-batt", {
+    value: v == null ? "--" : v.toFixed(1),
+    sub: !b ? "Board service not running" : v == null ? "No reading"
+      : v > 15.2 ? "Too high, check charging" : v >= 13.2 ? "Charging"
+      : v >= 12.2 ? "Engine off" : v >= 11.8 ? "Getting low" : "Low, start the engine",
+    level: v == null ? null : v > 15.2 || v < 11.8 ? "bad" : v < 12.2 ? "warn" : null,
+  });
+  const amp = (b && b.amp) || {};
+  const hot = amp.overtemp_warning;
+  setGauge("g-amp", {
+    value: !b ? "--" : amp.fault ? "Fault" : hot ? "Hot" : amp.playing ? "On" : "Standby",
+    sub: !b ? "" : amp.fault ? "Restarting, check speaker wiring" : hot ? "Volume cut 6 dB to cool down"
+      : amp.playing ? "No faults" : b.amp_error || "Waiting to start",
+    level: amp.fault ? "bad" : hot ? "warn" : null,
+  });
+  const t = b && b.board_temp;
+  setGauge("g-dash", {
+    value: t == null ? "--" : t.toFixed(0),
+    sub: t == null ? "" : t >= 85 ? "Very hot" : t >= 70 ? "Hot, fans working" : "Inside the dash",
+    level: t >= 85 ? "bad" : t >= 70 ? "warn" : null,
+  });
+
+  const key = !b ? "--" : b.acc ? "On"
+    : b.shutdown_in != null ? `Off, shutting down in ${Math.ceil(b.shutdown_in)} s` : "Off";
+  const rpm = b && b.fan_rpm && b.fan_rpm.length ? b.fan_rpm.join(" / ") + " rpm" : "--";
+  const fans = b && b.fan_duty != null ? `${Math.round(b.fan_duty * 100)} %, ${rpm}` : "--";
+  const learned = b && b.buttons ? Object.keys(b.buttons).length : 0;
+  const clock = d.clock || {};
+  const side = (x, a, z) => (Math.abs(x) < 0.05 ? null : `${Math.round(Math.abs(x) * 100)} % ${x > 0 ? a : z}`);
+  const fader = b ? [side(b.fader, "front", "rear"), side(b.balance, "right", "left")].filter(Boolean).join(", ") || "Centered" : "--";
+  $("car-list").innerHTML = factsHtml([
+    ["Key", key],
+    ["Headlights", !b ? "--" : b.lights ? "On, night mode" : "Off"],
+    ["Reverse", !b ? "--" : b.reverse ? "Yes, music lowered" : "No"],
+    ["Fans", fans],
+    ["Audio out", d.audio_out || "--"],
+    ["Clock", clock.ntp ? "Network time" : clock.rtc ? "Board clock" : "Not set"],
+    ["Steering wheel", !b ? "--" : learned ? `${learned} buttons learned` : "Not learned yet"],
+    ["Fader", fader],
+  ]);
+}
+
+document.querySelectorAll("#info-view .seg").forEach((seg) => {
+  seg.addEventListener("click", () => {
+    document.querySelectorAll("#info-view .seg").forEach((s) => s.classList.toggle("active", s === seg));
+    const car = seg.dataset.tab === "car";
+    $("info-system").classList.toggle("hidden", car);
+    $("info-car").classList.toggle("hidden", !car);
+    animateIn($(car ? "info-car" : "info-system"), car ? "enter-forward" : "enter-back");
+  });
+});
 
 async function pollInfo() {
   try { renderInfo(await getJSON("/api/info")); } catch (e) { /* keep last */ }

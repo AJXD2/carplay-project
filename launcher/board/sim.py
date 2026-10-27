@@ -40,10 +40,11 @@ class SimTAS6424:
 
 
 class SimADS1115:
-    """Two ladder inputs. Set .volts[ch] to what the wheel presents."""
+    """Two ladder inputs and the battery divider (AIN2). Set .volts[ch] to
+    what the wheel presents."""
 
     def __init__(self):
-        self.volts = [3.3, 3.3]
+        self.volts = [3.3, 3.3, 12.6 / 11.77]
         self.cfg = 0x8583
         self.last = 0
 

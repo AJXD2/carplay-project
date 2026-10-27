@@ -312,6 +312,7 @@ svg { display: block; }
 }
 .facts div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; height: 38px; border-top: 1px solid var(--rule); padding-top: 9px; min-width: 0; }
 .facts dt { font-size: 15px; color: var(--steel); flex-shrink: 0; }
+#car-list { margin-top: 14px; }
 .facts dd { margin: 0; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* -- trip calc ------------------------------------------------------------ */

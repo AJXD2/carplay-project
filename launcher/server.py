@@ -31,6 +31,7 @@ import threading
 import time
 import traceback
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import dongle
@@ -336,6 +337,28 @@ def dongle_on_usb():
     return False
 
 
+CARRIERD = "http://127.0.0.1:8735/state"
+
+
+def get_board():
+    """carrierd's state (battery, amp, inputs, fans), or None when the board
+    service isn't running (no carrier board, or it crashed)."""
+    try:
+        with urllib.request.urlopen(CARRIERD, timeout=0.5) as r:
+            return json.load(r)
+    except (OSError, ValueError):
+        return None
+
+
+def get_audio_out():
+    sink = _sh(["pactl", "get-default-sink"])
+    if sink == "carrier":
+        return "Carrier board"
+    if "usb" in sink.lower():
+        return "USB adapter"
+    return sink or None
+
+
 def get_info():
     temp = _read("/sys/class/thermal/thermal_zone0/temp")
     uptime = _read("/proc/uptime")
@@ -356,6 +379,9 @@ def get_info():
         "volume": get_volume(),
         "dongle_usb": dongle_on_usb(),
         "carplay_running": app_running(APPS[0]),
+        "board": get_board(),
+        "audio_out": get_audio_out(),
+        "clock": {"ntp": time_synced(), "rtc": os.path.exists("/dev/rtc0")},
     }
 
 

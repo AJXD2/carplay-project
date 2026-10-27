@@ -9,6 +9,8 @@
     PI_HOLD and the board switches itself off)
   - headlights -> launcher night mode; reverse -> duck the music
   - fan curve from the SoC temperature, tach readback
+  - battery voltage (ADS1115 AIN2) and dash temperature (DS3231) for the
+    launcher's Info view
 
 Local JSON API on 127.0.0.1:8735 for the launcher UI:
   GET  /state
@@ -44,6 +46,22 @@ API_PORT = 8735
 GPIO = dict(acc=17, lights=27, reverse=7, amp_stby=22, amp_mute=23, amp_fault=24,
             amp_warn=25, adc_alert=6, fan1_tach=16, fan2_tach=4)
 PWM_CH = dict(fan1=0, fan2=1)                         # GPIO12 / GPIO13
+# ADS1115 AIN2: battery through R2 95.3k over R3 5.11k + R4 3.74k (R4 is
+# shared with the LM74800's OV divider), so volts at AIN2 x 11.77.
+BATT_CH, BATT_SCALE = 2, (95.3 + 5.11 + 3.74) / (5.11 + 3.74)
+
+
+def board_temp():
+    """DS3231 die temperature (rtc-ds1307 exposes it as hwmon): the air
+    inside the dash, near enough. None without the RTC driver."""
+    import glob
+    for d in glob.glob("/sys/class/hwmon/hwmon*"):
+        try:
+            if open(f"{d}/name").read().strip() == "ds3231":
+                return int(open(f"{d}/temp1_input").read()) / 1000
+        except (OSError, ValueError):
+            pass
+    return None
 
 DEFAULT_ACTIONS = {
     "vol_up": ["volume", 4],
@@ -213,6 +231,11 @@ class Board:
                 self.amp_retry_at = now + self.amp_backoff
                 self.amp_backoff = min(self.amp_backoff * 2, 60.0)
             self.amp.set_thermal_cut(-6.0 if amp.get("overtemp_warning") else 0.0)
+        try:
+            st["battery_v"] = round(self.adc.read(BATT_CH) * BATT_SCALE, 2)
+        except OSError:
+            st["battery_v"] = None
+        st["board_temp"] = None if self.sim else board_temp()
         temp = fans.cpu_temp()
         duty = fans.fan_duty(temp, bool(amp.get("overtemp_warning")))
         rpm = []

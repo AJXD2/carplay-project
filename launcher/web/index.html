@@ -94,6 +94,11 @@
   </footer>
 
   <section id="info-view" class="view panel-view hidden">
+    <div class="segmented" role="tablist">
+      <button class="seg active" data-tab="system" role="tab">System</button>
+      <button class="seg" data-tab="car" role="tab">Car</button>
+    </div>
+    <div id="info-system">
     <div class="gauges">
       <div class="gauge" id="g-temp"><span class="g-label">CPU temperature</span><span class="g-value"><span class="num">--</span><span class="unit">°C</span></span><span class="g-sub"></span></div>
       <div class="gauge" id="g-power"><span class="g-label">Power supply</span><span class="g-value word">--</span><span class="g-sub"></span></div>
@@ -105,6 +110,15 @@
       <span id="mic-db" class="row-value">--</span>
     </div>
     <dl id="info-list" class="facts"></dl>
+    </div>
+    <div id="info-car" class="hidden">
+      <div class="gauges">
+        <div class="gauge" id="g-batt"><span class="g-label">Battery</span><span class="g-value"><span class="num">--</span><span class="unit">V</span></span><span class="g-sub"></span></div>
+        <div class="gauge" id="g-amp"><span class="g-label">Amplifier</span><span class="g-value word">--</span><span class="g-sub"></span></div>
+        <div class="gauge" id="g-dash"><span class="g-label">Dash temperature</span><span class="g-value"><span class="num">--</span><span class="unit">°C</span></span><span class="g-sub"></span></div>
+      </div>
+      <dl id="car-list" class="facts"></dl>
+    </div>
   </section>
 
   <section id="trip-view" class="view panel-view hidden">
