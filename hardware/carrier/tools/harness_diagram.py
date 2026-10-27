@@ -14,7 +14,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.patches import FancyBboxPatch, Polygon, Rectangle
 
 OUT = Path(__file__).resolve().parent.parent / "out" / "harness.png"
 
@@ -64,11 +64,25 @@ def main():
     fig = plt.figure(figsize=(13, 9.6), dpi=150)
     ax = fig.add_axes([0.03, 0.55, 0.94, 0.42])
     ax.set_xlim(-0.6, 13.2)
-    ax.set_ylim(-1.1, 3.6)
+    ax.set_ylim(-1.3, 3.6)
     ax.set_aspect("equal")
     ax.axis("off")
-    ax.add_patch(FancyBboxPatch((-0.35, -0.3), 12.45, 2.95, boxstyle="round,pad=0.05,rounding_size=0.2",
-                                fc="#efefef", ec="#555555", lw=2))
+    # Housing outline with its notches: a large one in the middle of the side
+    # toward the board, two small ones set in from the ends on the board-edge
+    # side. Sizes are drawn to show where they are, not to scale.
+    x0, x1, y0, y1, d = -0.35, 12.1, -0.3, 2.65, 0.22
+    big, small_w = (5.9, 2.4), 0.7
+    smalls = (1.8, 10.0)                          # between pins 2/3 and 8/9
+    pts = [(x0, y0), (big[0] - big[1] / 2, y0), (big[0] - big[1] / 2, y0 + d),
+           (big[0] + big[1] / 2, y0 + d), (big[0] + big[1] / 2, y0), (x1, y0), (x1, y1)]
+    for cx in sorted(smalls, reverse=True):
+        pts += [(cx + small_w / 2, y1), (cx + small_w / 2, y1 - d), (cx - small_w / 2, y1 - d),
+                (cx - small_w / 2, y1)]
+    pts += [(x0, y1)]
+    ax.add_patch(Polygon(pts, closed=True, fc="#efefef", ec="#555555", lw=2, joinstyle="round"))
+    ax.text(big[0], y0 - 0.25, "large notch (board side)", fontsize=9, ha="center", va="top")
+    for cx in smalls:
+        ax.text(cx, y1 + 0.12, "small notch", fontsize=9, ha="center", va="bottom")
     for i in range(10):
         cavity(ax, i * 1.2, 1.35, i + 1)          # pins 1-10, nearest the board edge
         cavity(ax, i * 1.2, 0.0, i + 11)          # pins 11-20
@@ -76,7 +90,7 @@ def main():
     ax.text(12.75, 1.9, "board\nedge", fontsize=9, ha="left", va="center")
     ax.text(-0.3, 3.25, "J1 harness plug: WIRE side, plugged in, board viewed from above (J1 along the top edge)",
             fontsize=12, weight="bold")
-    ax.text(-0.3, -0.8, "Pin 1 = top left. Check against the numbers moulded on the Molex housing before "
+    ax.text(-0.3, -1.05, "Pin 1 = top left. Check against the numbers moulded on the Molex housing before "
             "pushing pins in. The plug is keyed, so it only mates one way.", fontsize=9.5)
 
     tx = fig.add_axes([0.03, 0.02, 0.94, 0.5])
