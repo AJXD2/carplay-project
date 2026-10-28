@@ -108,6 +108,23 @@ def launcher_post(path, data):
         log.warning("launcher %s: %s", path, e)
 
 
+def carplay_window(env, cls):
+    """The visible CarPlay window (largest viewable window of the class), or
+    None when the launcher has it hidden."""
+    run = lambda *a: subprocess.run(a, env=env, capture_output=True, text=True, timeout=3).stdout
+    best, area = None, 0
+    for w in run("xdotool", "search", "--class", cls).split():
+        info = run("xwininfo", "-id", w)
+        if "IsViewable" not in info:
+            continue
+        dims = dict(line.strip().split(": ", 1) for line in info.splitlines()
+                    if line.strip().startswith(("Width:", "Height:")))
+        a = int(dims.get("Width", 0)) * int(dims.get("Height", 0))
+        if a > area:
+            best, area = w, a
+    return best
+
+
 class Board:
     def __init__(self, sim=False):
         self.sim = sim
@@ -162,13 +179,21 @@ class Board:
             self.send_key("o" if self.playing_toggle else "p")
 
     def send_key(self, key):
+        """Type `key` into CarPlay. react-carplay reads keydown in its page
+        (bindings in its config.json), and Chromium only takes real key
+        events in the focused window: `xdotool key --window` (a synthetic
+        event) is ignored, and the first window of the class is a hidden
+        helper. So: find the visible CarPlay window, focus it, type."""
         if self.sim:
             log.info("(sim) key %s", key)
             return
-        cls = self.cfg["carplay_window_class"]
         env = dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))
-        subprocess.run(["xdotool", "search", "--limit", "1", "--class", cls, "key", "--window", "%1", key],
-                       env=env, capture_output=True)
+        win = carplay_window(env, self.cfg["carplay_window_class"])
+        if not win:
+            log.info("key %s: CarPlay is not on screen", key)
+            return
+        subprocess.run(["xdotool", "windowfocus", "--sync", win, "key", "--clearmodifiers", key],
+                       env=env, capture_output=True, timeout=3)
 
     def shutdown(self):
         log.warning("key off: shutting down")
