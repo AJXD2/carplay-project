@@ -315,6 +315,18 @@ laptop can `ssh -D 1080 -N ajxd2@<pi-eth0-ip>` and point the tool at
   Pi's screen while it runs. Backups: `themes/carplay-rings`,
   `initramfs8.bak`, `cmdline.txt.bak`, `~/.xinitrc.orig`,
   `~/.bash_profile.orig`.
+- Update view: the deploy scripts (`launcher/splash/progress.sh`, which runs
+  `xsplash.py progress` from a copy in `/tmp`) open a full-screen view above
+  CarPlay and the launcher with the title, a large percentage and bar, the
+  current message and "Keep the power on". Tapping anywhere (or Hide) shrinks
+  it to a small card at the top of the screen so CarPlay is usable again;
+  tapping the card brings the full screen back. Done and failed show in both
+  forms (amber check, red exclamation) and close on their own after a few
+  seconds. A soft three-tone chime (`update-chime.wav`, G5 C6 E6, 1.1 s, peak
+  -12 dBFS) plays through `paplay` when it opens and a quieter two-tone one
+  (`update-done.wav`) when it finishes; both are best effort and never delay
+  an update. `launcher/splash/make_chime.py` regenerates the WAVs (48 kHz,
+  16-bit, stereo, to match the amplifier board).
 - Hand-off to X: `~/.bash_profile` (repo copy `launcher/system/bash_profile`)
   quits Plymouth with `--retain-splash` (hard-killing it if it's still up
   after 2 s, since a normal kill clears the screen) and starts Xorg with
