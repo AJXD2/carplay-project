@@ -187,9 +187,10 @@ class Board:
                 if self.learner:
                     self.learner.feed(ch, v)
                     if self.learner.done:
-                        self.cfg["buttons"] = self.learner.learned
-                        self.buttons.buttons = self.cfg["buttons"]
-                        save_config(self.cfg, self.sim)
+                        if self.learner.learned:          # all skipped: keep the old set
+                            self.cfg["buttons"] = self.learner.learned
+                            self.buttons.buttons = self.cfg["buttons"]
+                            save_config(self.cfg, self.sim)
                         self.learner = None
                 else:
                     self.buttons.feed(ch, v)

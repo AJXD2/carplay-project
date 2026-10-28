@@ -202,7 +202,7 @@ const VIEWS = {
   trip: { title: "Trip Calc", el: "trip-view", open: openTrip, close: () => {} },
   logs: { title: "Logs", el: "logs-view", open: openLogs, close: closeLogs },
   devices: { title: "Paired phones", el: "devices-view", open: openDevices, close: closeDevices },
-  settings: { title: "Settings", el: "settings-view", open: openSettings, close: () => {} },
+  settings: { title: "Settings", el: "settings-view", open: openSettings, close: closeSettings },
 };
 let currentView = null;
 
@@ -612,7 +612,102 @@ $("auto-launch-toggle").addEventListener("click", () => {
 async function openSettings() {
   try { config = await getJSON("/api/config"); } catch (e) { /* show last known */ }
   renderSettings();
+  refreshWheel();
 }
+
+function closeSettings() {
+  if (wheelLearning) cancelLearn(true);
+}
+
+// -- steering-wheel learn mode -------------------------------------------------
+// carrierd (the board service) does the learning: it asks for each button in
+// this order, records the voltage it reads, and refuses two buttons it can't
+// tell apart. The page only shows its progress.
+const WHEEL_NAMES = {
+  vol_up: "Volume up", vol_down: "Volume down", seek_up: "Next track", seek_down: "Previous track",
+  mode: "Mode", voice: "Voice", phone_on: "Answer call", phone_off: "Hang up",
+};
+let wheelLearning = false;
+let wheelTimer = null;
+
+async function refreshWheel() {
+  let w = null;
+  try { w = await getJSON("/api/wheel"); } catch (e) { /* treat as unavailable */ }
+  const btn = $("wheel-learn-btn");
+  if (!w || !w.available) {
+    $("wheel-help").textContent = "Board service not running";
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = false;
+  const n = Object.keys(w.buttons).length;
+  $("wheel-help").textContent = n ? `${n} buttons learned. Learn again to redo them.` : "Not learned yet.";
+  btn.textContent = n ? "Learn again" : "Learn";
+}
+
+function showLearn(on) {
+  $("settings-main").classList.toggle("hidden", on);
+  $("wheel-learn").classList.toggle("hidden", !on);
+}
+
+function renderLearn(l) {
+  const name = WHEEL_NAMES[l.prompt] || l.prompt;
+  $("learn-step").textContent = `Button ${l.step + 1} of ${l.total}`;
+  $("learn-prompt").textContent = `Press ${name}`;
+  const hint = $("learn-hint");
+  hint.textContent = l.error
+    ? `That reads the same as ${WHEEL_NAMES[l.error.split(" reads the same as ")[1]?.split(";")[0]] || "another button"}. Try again, or skip it.`
+    : "Press and hold it for a second, then let go.";
+  hint.classList.toggle("error", !!l.error);
+  $("learn-list").innerHTML = Object.keys(WHEEL_NAMES).map((k, i) => {
+    const cls = l.learned[k] ? "done" : i < l.step ? "skipped" : i === l.step ? "current" : "";
+    return `<div class="learn-chip ${cls}">${escapeHtml(WHEEL_NAMES[k])}</div>`;
+  }).join("");
+}
+
+async function pollLearn() {
+  if (!wheelLearning) return;
+  let w = null;
+  try { w = await getJSON("/api/wheel"); } catch (e) { /* keep polling */ }
+  if (w && w.learn) {
+    renderLearn(w.learn);
+  } else if (w && w.available) {
+    // carrierd finished: it saved what was learned and left learn mode
+    wheelLearning = false;
+    showLearn(false);
+    const n = Object.keys(w.buttons).length;
+    showToast(n ? `${n} buttons learned` : "No buttons learned");   // carrierd keeps the old set if all were skipped
+    refreshWheel();
+    return;
+  }
+  wheelTimer = setTimeout(pollLearn, 250);
+}
+
+async function startLearn() {
+  try {
+    const r = await postJSON("/api/wheel/learn/start", {});
+    if (!r.ok) throw new Error();
+  } catch (e) {
+    showToast("Board service not running", true);
+    return;
+  }
+  wheelLearning = true;
+  showLearn(true);
+  pollLearn();
+}
+
+async function cancelLearn(quiet) {
+  wheelLearning = false;
+  clearTimeout(wheelTimer);
+  showLearn(false);
+  try { await postJSON("/api/wheel/learn/cancel", {}); } catch (e) { /* carrierd gone anyway */ }
+  if (!quiet) showToast("Cancelled. The old buttons are kept.");
+  refreshWheel();
+}
+
+$("wheel-learn-btn").addEventListener("click", startLearn);
+$("learn-skip").addEventListener("click", () => postJSON("/api/wheel/learn/skip", {}).catch(() => {}));
+$("learn-cancel").addEventListener("click", () => cancelLearn(false));
 
 // -- paired phones (dongle web panel) ----------------------------------------
 // Opening this view makes the backend borrow wlan0 to join the dongle's AP

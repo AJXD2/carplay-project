@@ -337,17 +337,30 @@ def dongle_on_usb():
     return False
 
 
-CARRIERD = "http://127.0.0.1:8735/state"
+CARRIERD = "http://127.0.0.1:8735"
 
 
-def get_board():
-    """carrierd's state (battery, amp, inputs, fans), or None when the board
+def carrierd_call(path, data=None, timeout=0.5):
+    """GET (data None) or POST to carrierd's local API. None when the board
     service isn't running (no carrier board, or it crashed)."""
+    body = None if data is None else json.dumps(data).encode()
+    req = urllib.request.Request(CARRIERD + path, body, {"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(CARRIERD, timeout=0.5) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.load(r)
     except (OSError, ValueError):
         return None
+
+
+def get_board():
+    """carrierd's state (battery, amp, inputs, fans, wheel)."""
+    return carrierd_call("/state")
+
+
+def get_wheel():
+    st = get_board()
+    return {"available": st is not None, "learn": st and st.get("learn"),
+            "buttons": (st or {}).get("buttons") or {}}
 
 
 def get_audio_out():
@@ -614,6 +627,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"dimmed": night_mode})
         elif path == "/api/info":
             self._json(200, get_info())
+        elif path == "/api/wheel":
+            self._json(200, get_wheel())
         elif path == "/api/mic":
             self._json(200, get_mic_level())
         elif path == "/api/trip":
@@ -694,6 +709,11 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/trip":
             ok, state = save_trip(data)
             self._json(200, {"ok": ok, "state": state})
+        elif self.path in ("/api/wheel/learn/start", "/api/wheel/learn/skip", "/api/wheel/learn/cancel"):
+            # steering-wheel learn mode lives in carrierd; the page can't reach
+            # its port directly (different origin)
+            st = carrierd_call(self.path[len("/api/wheel"):], {}, timeout=1)
+            self._json(200 if st is not None else 503, {"ok": st is not None, "learn": st and st.get("learn")})
         elif self.path == "/api/dim":
             global night_mode
             night_mode = bool(data.get("dimmed"))

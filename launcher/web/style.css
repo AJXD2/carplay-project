@@ -406,6 +406,45 @@ svg { display: block; }
 .switch[aria-checked="true"] { background: var(--amber-glow); }
 .switch[aria-checked="true"]::after { transform: translateX(32px); background: var(--amber); }
 
+.setting.spaced-top { margin-top: 22px; }
+.pill-btn {
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 26px;
+  border-radius: 24px;
+  background: var(--panel-hi);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+}
+.pill-btn:active { background: var(--pressed); }
+.pill-btn:disabled { opacity: 0.4; }
+.pill-btn.ghost { background: transparent; color: var(--steel); }
+
+/* steering-wheel learn mode (inside settings) */
+.wheel-learn { height: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.learn-step { font-size: 15px; color: var(--steel); margin-top: 6px; }
+.learn-prompt { font-family: var(--num); font-weight: 600; font-size: 40px; line-height: 1.15; margin-top: 8px; }
+.learn-hint { font-size: 16px; color: var(--steel); margin-top: 8px; min-height: 20px; }
+.learn-hint.error { color: var(--red); }
+.learn-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; margin-top: 22px; }
+.learn-chip {
+  height: 44px;
+  border-radius: 12px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--steel);
+}
+.learn-chip.current { box-shadow: inset 0 0 0 2px var(--amber); color: var(--text); }
+.learn-chip.done { color: var(--text); }
+.learn-chip.done::before { content: "\2713"; color: var(--amber); font-weight: 700; }
+.learn-chip.skipped { opacity: 0.45; text-decoration: line-through; }
+.learn-actions { display: flex; gap: 12px; margin-top: auto; }
+
 .choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--gap); }
 .choice {
   height: 88px;

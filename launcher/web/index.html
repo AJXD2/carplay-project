@@ -150,6 +150,7 @@
   </section>
 
   <section id="settings-view" class="view panel-view hidden">
+    <div id="settings-main">
     <div class="setting">
       <div>
         <div class="setting-name">Open an app on startup</div>
@@ -159,6 +160,24 @@
     </div>
     <div class="setting-name spaced">App to open</div>
     <div id="app-picker" class="choices"></div>
+    <div class="setting spaced-top">
+      <div>
+        <div class="setting-name">Steering wheel buttons</div>
+        <div id="wheel-help" class="setting-help">--</div>
+      </div>
+      <button id="wheel-learn-btn" class="pill-btn">Learn</button>
+    </div>
+    </div>
+    <div id="wheel-learn" class="wheel-learn hidden">
+      <div id="learn-step" class="learn-step"></div>
+      <div id="learn-prompt" class="learn-prompt"></div>
+      <div id="learn-hint" class="learn-hint">Press and hold it for a second, then let go.</div>
+      <div id="learn-list" class="learn-list"></div>
+      <div class="learn-actions">
+        <button id="learn-skip" class="pill-btn">My wheel doesn't have this</button>
+        <button id="learn-cancel" class="pill-btn ghost">Cancel</button>
+      </div>
+    </div>
     <div id="toast" class="toast" hidden></div>
   </section>
 
