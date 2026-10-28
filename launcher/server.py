@@ -35,6 +35,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import dongle
+import eq
 import persist
 import wm_helper as wm
 
@@ -46,6 +47,7 @@ ICON_DIR = os.path.join(SCRIPT_DIR, "assets", "icons")
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
 TRIP_PATH = os.path.join(SCRIPT_DIR, "trip_state.json")
 VOLUME_PATH = os.path.join(SCRIPT_DIR, "volume.json")
+EQ_PATH = os.path.join(SCRIPT_DIR, "eq.json")
 LAUNCHER_LOG = "/tmp/server_startup.log"
 CARPLAY_CONFIG = "~/.config/react-carplay/config.json"
 
@@ -248,6 +250,37 @@ class VolumeKeeper(threading.Thread):
                 if persist_file(VOLUME_PATH, json.dumps({"percent": cur})):
                     self.saved = cur
             last = cur
+
+
+# -- equalizer (eq.py) ---------------------------------------------------------
+# The sliders apply live; the file is written once they've been left alone
+# for a few seconds, like the volume, so dragging doesn't remount the SD card.
+EQ_SETTLE_S = 3
+eq_state = eq.load(EQ_PATH)
+_eq_timer = None
+
+
+def set_eq(gains, preset=None):
+    global _eq_timer
+    eq_state.update(gains=eq.clamp(gains), preset=preset)
+    ok = eq.apply(eq_state["gains"])
+    if _eq_timer:
+        _eq_timer.cancel()
+    _eq_timer = threading.Timer(EQ_SETTLE_S, lambda: persist_file(EQ_PATH, json.dumps(eq_state)))
+    _eq_timer.daemon = True
+    _eq_timer.start()
+    return ok
+
+
+def restore_eq():
+    """PulseAudio and its EQ sink come up around the same time as the
+    launcher: keep trying for a minute."""
+    for _ in range(30):
+        if eq.apply(eq_state["gains"]):
+            log(f"restored equalizer ({eq_state.get('preset') or 'custom'})")
+            return
+        time.sleep(2)
+    log("equalizer: no EQ sink, left flat")
 
 
 # Real backlight control (not just a CSS overlay) -- ajxd2 is in the
@@ -669,6 +702,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, get_info())
         elif path == "/api/wheel":
             self._json(200, get_wheel())
+        elif path == "/api/eq":
+            self._json(200, {"bands": eq.BANDS, "max_db": eq.MAX_DB, "presets": eq.PRESETS,
+                             "available": eq.available(), **eq_state})
         elif path == "/api/mic":
             self._json(200, get_mic_level())
         elif path == "/api/trip":
@@ -754,6 +790,9 @@ class Handler(BaseHTTPRequestHandler):
             # its port directly (different origin)
             st = carrierd_call(self.path[len("/api/wheel"):], {}, timeout=1)
             self._json(200 if st is not None else 503, {"ok": st is not None, "learn": st and st.get("learn")})
+        elif self.path == "/api/eq":
+            ok = set_eq(data.get("gains", eq_state["gains"]), data.get("preset"))
+            self._json(200, {"ok": ok, **eq_state})
         elif self.path == "/api/dim":
             global night_mode
             night_mode = bool(data.get("dimmed"))
@@ -794,6 +833,7 @@ def main():
         volume_keeper = VolumeKeeper()
         volume_keeper.restore()
         volume_keeper.start()
+        threading.Thread(target=restore_eq, daemon=True).start()
         start_chromium_and_wait()
         try_auto_launch()
         while True:

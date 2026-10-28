@@ -49,7 +49,7 @@ onscreen 10 30 5 "Copying the launcher. Keep the power on."
 # replacing them with new inodes (tar's default) leaves the running
 # overlay serving the old cached copy until the next reboot.
 tar -C "$SCRIPT_DIR" --exclude=__pycache__ -cf - \
-    wm_helper.py dongle.py persist.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py \
+    wm_helper.py dongle.py eq.py persist.py server.py launcher.py flappy.py info.py trip.py logs.py overlay_tab.py \
     web assets/icons tools splash/xsplash.py \
   | ssh "$HOST" "sudo mkdir -p $REMOTE_LAUNCHER_DIR && sudo tar -C $REMOTE_LAUNCHER_DIR --no-same-owner --overwrite -xf -"
 ssh "$HOST" "sudo chown -R ajxd2:ajxd2 $REMOTE_LAUNCHER_DIR"

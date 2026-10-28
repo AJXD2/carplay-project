@@ -6,3 +6,6 @@ backups/
 
 # LibreOffice lock files
 .~lock.*#
+
+# Device state written by the launcher (equalizer settings)
+launcher/eq.json

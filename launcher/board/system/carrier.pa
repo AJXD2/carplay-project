@@ -17,5 +17,11 @@ load-module module-remap-source master=carrier_in source_name=carrier_mic source
 # cubic scale; 65536 = 100 %).
 set-source-volume carrier_mic 140902
 set-default-sink carrier
+# Equalizer (launcher eq.py): swh-plugins' 15-band mbeq in front of the
+# board, flat until the launcher applies the saved bands over D-Bus. If it
+# fails to load, the default stays the board itself (set just above).
+load-module module-dbus-protocol
+load-module module-ladspa-sink sink_name=carrier_eq sink_master=carrier sink_properties=device.description=Carrier_EQ plugin=mbeq_1197 label=mbeq control=0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+set-default-sink carrier_eq
 set-default-source carrier_mic
 .fail

@@ -219,6 +219,7 @@ const VIEWS = {
   logs: { title: "Logs", el: "logs-view", open: openLogs, close: closeLogs },
   devices: { title: "Paired phones", el: "devices-view", open: openDevices, close: closeDevices },
   settings: { title: "Settings", el: "settings-view", open: openSettings, close: closeSettings },
+  eq: { title: "Equalizer", el: "eq-view", open: openEq, close: () => {} },
 };
 let currentView = null;
 
@@ -427,6 +428,83 @@ function closeInfo() {
   clearTimeout(micTimer);
   micActive = false;
 }
+
+// -- equalizer -----------------------------------------------------------------
+// Seven bands, dragged vertically; changes apply live (one request in
+// flight, the latest wins) and the server saves them once they settle.
+let eqData = null;
+let eqInFlight = false;
+let eqQueued = null;
+const fmtHz = (f) => (f >= 1000 ? `${f / 1000}k` : `${f}`);
+const fmtDb = (g) => (Math.abs(g) < 0.05 ? "0" : `${g > 0 ? "+" : ""}${g.toFixed(1).replace(/\.0$/, "")}`);
+
+function renderEqBand(i) {
+  const g = eqData.gains[i];
+  const band = $("eq-bands").children[i];
+  const frac = (eqData.max_db - g) / (2 * eqData.max_db);        // 0 top .. 1 bottom
+  const y = `calc(16px + ${frac} * (100% - 32px))`;
+  band.querySelector(".eq-knob").style.top = y;
+  const fill = band.querySelector(".eq-fill");
+  fill.style.top = g >= 0 ? y : "50%";
+  fill.style.bottom = g >= 0 ? "50%" : `calc(100% - (${y}))`;
+  const db = band.querySelector(".eq-db");
+  db.textContent = fmtDb(g);
+  db.classList.toggle("boost", g > 0.05);
+}
+
+function renderEq() {
+  $("eq-presets").innerHTML = Object.keys(eqData.presets).map((name) =>
+    `<button class="seg${eqData.preset === name ? " active" : ""}" data-preset="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join("");
+  $("eq-note").textContent = eqData.available ? "" : "Saved, applies once the board audio is set up";
+  const bands = $("eq-bands");
+  if (bands.children.length !== eqData.bands.length) {
+    bands.innerHTML = eqData.bands.map((f) =>
+      `<div class="eq-band"><span class="eq-db"></span><div class="eq-track"><div class="eq-zero"></div>` +
+      `<div class="eq-fill"></div><div class="eq-knob"></div></div><span class="eq-hz">${fmtHz(f)}</span></div>`).join("");
+    [...bands.children].forEach((band, i) => bindEqTrack(band.querySelector(".eq-track"), i));
+  }
+  eqData.bands.forEach((_, i) => renderEqBand(i));
+}
+
+async function sendEq() {
+  if (eqInFlight) { eqQueued = true; return; }
+  eqInFlight = true;
+  try {
+    await postJSON("/api/eq", { gains: eqData.gains, preset: eqData.preset });
+  } catch (e) { /* the next change or reopening shows the real state */ }
+  eqInFlight = false;
+  if (eqQueued) { eqQueued = false; sendEq(); }
+}
+
+function bindEqTrack(track, i) {
+  const setFromY = (clientY) => {
+    const r = track.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientY - r.top - 16) / (r.height - 32)));
+    const g = Math.round((eqData.max_db - frac * 2 * eqData.max_db) * 2) / 2;   // 0.5 dB steps
+    if (g === eqData.gains[i]) return;
+    eqData.gains[i] = g;
+    if (eqData.preset) { eqData.preset = null; renderEq(); } else renderEqBand(i);
+    sendEq();
+  };
+  track.addEventListener("pointerdown", (e) => { track.setPointerCapture(e.pointerId); setFromY(e.clientY); });
+  track.addEventListener("pointermove", (e) => { if (track.hasPointerCapture(e.pointerId)) setFromY(e.clientY); });
+}
+
+$("eq-presets").addEventListener("click", (e) => {
+  const name = e.target.dataset && e.target.dataset.preset;
+  if (!name) return;
+  eqData.gains = [...eqData.presets[name]];
+  eqData.preset = name;
+  renderEq();
+  sendEq();
+});
+
+async function openEq() {
+  try { eqData = await getJSON("/api/eq"); } catch (e) { return; }
+  renderEq();
+}
+
+$("eq-btn").addEventListener("click", () => showView("eq"));
 
 // -- trip calc ---------------------------------------------------------------
 let trip = null;

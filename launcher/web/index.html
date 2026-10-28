@@ -49,6 +49,9 @@
       <symbol id="i-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>
       </symbol>
+      <symbol id="i-eq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 4v16M12 4v16M18 4v16"/><path d="M4 15h4M10 8h4M16 13h4"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -91,6 +94,7 @@
     <div id="vol-track" class="vol-track"><div id="vol-fill" class="vol-fill"></div></div>
     <span id="vol-value" class="vol-value">--</span>
     <button id="vol-up" class="icon-btn round" aria-label="Volume up"><svg><use href="#i-plus"/></svg></button>
+    <button id="eq-btn" class="icon-btn round" aria-label="Equalizer"><svg><use href="#i-eq"/></svg></button>
   </footer>
 
   <section id="info-view" class="view panel-view hidden">
@@ -147,6 +151,14 @@
     </div>
     <pre id="log-body" class="log-body"></pre>
     <button id="log-bottom" class="icon-btn round float hidden" aria-label="Jump to newest"><svg><use href="#i-down"/></svg></button>
+  </section>
+
+  <section id="eq-view" class="view panel-view hidden">
+    <div class="eq-top">
+      <div id="eq-presets" class="segmented" role="tablist"></div>
+      <span id="eq-note" class="eq-note"></span>
+    </div>
+    <div id="eq-bands" class="eq-bands"></div>
   </section>
 
   <section id="settings-view" class="view panel-view hidden">

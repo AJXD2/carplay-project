@@ -315,6 +315,43 @@ svg { display: block; }
 #car-list { margin-top: 14px; }
 .facts dd { margin: 0; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* -- equalizer ------------------------------------------------------------ */
+.eq-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.eq-note { font-size: 14px; color: var(--steel); margin-bottom: 14px; }
+.eq-bands { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: calc(100% - 66px); }
+.eq-band { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 0; }
+.eq-db { font-family: var(--num); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; height: 22px; }
+.eq-db.boost { color: var(--amber); }
+.eq-track {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  border-radius: 14px;
+  background: var(--panel);
+  touch-action: none;
+}
+.eq-track::before {                                 /* the slot */
+  content: "";
+  position: absolute;
+  left: 50%; top: 16px; bottom: 16px;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: var(--panel-hi);
+}
+.eq-zero { position: absolute; left: 22%; right: 22%; top: 50%; height: 1px; background: var(--steel-dim); }
+.eq-fill { position: absolute; left: 50%; width: 6px; margin-left: -3px; background: var(--amber); border-radius: 3px; }
+.eq-knob {
+  position: absolute;
+  left: 50%;
+  width: 34px; height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.eq-hz { font-size: 14px; color: var(--steel); height: 18px; }
+
 /* -- trip calc ------------------------------------------------------------ */
 .trip-tab { display: flex; gap: 22px; height: calc(100% - 66px); }
 .steppers { flex: 1; display: flex; flex-direction: column; gap: 8px; }

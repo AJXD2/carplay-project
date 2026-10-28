@@ -110,6 +110,12 @@ rw() { ssh "$HOST" "sudo mount -o remount,rw $RO 2>/dev/null; true"; }
 
 if $AUDIO; then
   rw
+  echo "==> Equalizer plugin and PulseAudio D-Bus bindings (persistent, idempotent)"
+  onscreen 45 50 20 "Installing the equalizer. Keep the power on."
+  ssh "$HOST" "test -f $RO/usr/lib/ladspa/mbeq_1197.so -a -d $RO/usr/lib/python3/dist-packages/dbus || { sudo overlayroot-chroot apt-get -o Acquire::ForceIPv4=true update && sudo overlayroot-chroot apt-get -o Acquire::ForceIPv4=true install -y swh-plugins python3-dbus; }"
+  ssh "$HOST" "test -f $RO/usr/lib/ladspa/mbeq_1197.so -a -d $RO/usr/lib/python3/dist-packages/dbus" \
+    || { echo "swh-plugins/python3-dbus did not install" >&2; false; }
+  rw
   echo "==> PulseAudio: the board as default speaker and mic, 48 kHz"
   onscreen 50 55 2 "Setting up the board audio."
   ssh "$HOST" "sudo mkdir -p $RO/etc/pulse/default.pa.d && sudo tee $RO/etc/pulse/default.pa.d/carrier.pa >/dev/null" \
