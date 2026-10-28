@@ -15,8 +15,12 @@ ADDR = 0x48                      # ADDR pin to GND
 REG_CONV, REG_CFG = 0x00, 0x01
 FSR = 4.096                      # PGA +/-4.096 V: covers 0..3.3 V
 IDLE_V = 3.0                     # above this the wire is released
-MIN_SEP_V = 0.12                 # learned buttons must differ by at least this
-MATCH_V = 0.06                   # a reading within this of a learned value is that button
+# Real wheels drift while a button is held (a 2007 4Runner's seek-down went
+# 0.83 -> 1.25 V in 3 s; its buttons sit about 0.1, 1.0, 1.66 and 2.55 V
+# apart), so the bands are wide and matching takes the nearest button.
+MIN_SEP_V = 0.3                  # learned buttons must differ by at least this
+MATCH_V = 0.25                   # a reading within this of a learned value is that button
+SETTLE_V = 0.3                   # learn mode: a held press must stay within this
 STABLE_SAMPLES = 3               # ~3 x 8 ms at 250 SPS per channel before a press counts
 REPEAT_AFTER, REPEAT_EVERY = 0.45, 0.15
 
@@ -137,7 +141,7 @@ class Learner:
         if len(mine) < self.HOLD_SAMPLES // 2:
             return
         vals = [s[1] for s in mine[-self.HOLD_SAMPLES // 2:]]
-        if max(vals) - min(vals) > MATCH_V:
+        if max(vals) - min(vals) > SETTLE_V:
             return                                    # still moving (bounce or sliding contact)
         med = statistics.median(vals)
         clash = next((n for n, b in self.learned.items()

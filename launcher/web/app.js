@@ -146,6 +146,22 @@ function setVolumeUI(pct) {
   $("vol-value").textContent = pct;
 }
 
+// The server answers /api/volume/wait as soon as the volume changes (a
+// steering-wheel press, CarPlay, the bar itself), so the bar follows at once
+// instead of on the 2 s status poll.
+async function watchVolume() {
+  let seen = -1;
+  for (;;) {
+    try {
+      const d = await getJSON(`/api/volume/wait?v=${seen}`);
+      seen = d.v;
+      if (!draggingVolume) setVolumeUI(d.percent);
+    } catch (e) {
+      await new Promise((r) => setTimeout(r, 2000));   // server restarting
+    }
+  }
+}
+
 async function sendVolume(body) {
   const data = await postJSON("/api/volume", body);
   if (!draggingVolume) setVolumeUI(data.percent);
@@ -869,4 +885,5 @@ async function confirmForgetAll(devices) {
 
 // -- boot --------------------------------------------------------------------
 refreshStatus();
+watchVolume();
 setInterval(() => { if (!currentView) refreshStatus(); }, 2000);

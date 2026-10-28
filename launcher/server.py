@@ -173,7 +173,37 @@ def get_volume():
 def set_volume(pct):
     pct = max(0, min(100, pct))
     subprocess.run(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{pct}%"])
+    volume_watch.note(pct)
     return pct
+
+
+class VolumeWatch:
+    """Lets the page wait for the next volume change instead of polling: a
+    steering-wheel press moves the bar at once, not up to 2 s later.
+    set_volume() reports every change made through the launcher (bar,
+    wheel, API); VolumeKeeper's 4 s check catches the rest (pactl over SSH)."""
+
+    def __init__(self):
+        self.cond = threading.Condition()
+        self.percent, self.version = None, 0
+
+    def note(self, pct):
+        with self.cond:
+            if pct >= 0 and pct != self.percent:
+                self.percent, self.version = pct, self.version + 1
+                self.cond.notify_all()
+
+    def wait(self, seen, timeout=25.0):
+        """Current {"percent", "v"} once v differs from `seen`, or after
+        `timeout` s (the page then simply asks again)."""
+        with self.cond:
+            if self.percent is None:
+                self.percent = get_volume()
+            self.cond.wait_for(lambda: self.version != seen, timeout)
+            return {"percent": self.percent, "v": self.version}
+
+
+volume_watch = VolumeWatch()
 
 
 # Volume survives reboot: PulseAudio's own restore database lives in
@@ -208,6 +238,7 @@ class VolumeKeeper(threading.Thread):
         while True:
             time.sleep(VOLUME_SETTLE_S)
             cur = get_volume()
+            volume_watch.note(cur)
             # only persist once the level has held for a full interval, so
             # dragging the slider doesn't remount the SD card every step
             if cur >= 0 and cur == last and cur != self.saved:
@@ -621,6 +652,12 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif path == "/api/volume":
             self._json(200, {"percent": get_volume()})
+        elif path == "/api/volume/wait":
+            try:
+                seen = int(query.get("v", ["-1"])[0])
+            except ValueError:
+                seen = -1
+            self._json(200, volume_watch.wait(seen))
         elif path == "/api/config":
             self._json(200, config)
         elif path == "/api/dim":
