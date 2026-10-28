@@ -24,13 +24,18 @@
 # on /mnt only while it is written. config.txt is backed up once as
 # config.txt.carrier-bak; delete the block (or restore the backup) to undo.
 #
+# --board-only: just copy board/ and restart carrierd (code changes to the
+# board software); no tools, audio or boot settings are touched.
+#
 # Usage: ./install.sh [--audio] [--enable] [--reboot] [user@host]
+#        ./install.sh --board-only [user@host]
 
 set -euo pipefail
 
-AUDIO=false ENABLE=false REBOOT=false
+AUDIO=false ENABLE=false REBOOT=false BOARD_ONLY=false
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
+    --board-only) BOARD_ONLY=true ;;
     --audio) AUDIO=true ;;
     --enable) ENABLE=true ;;
     --reboot) REBOOT=true ;;
@@ -42,6 +47,25 @@ HOST="${1:-ajxd2@raspi.local}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RO=/media/root-ro
 RO_HOME=$RO/home/ajxd2
+
+if $BOARD_ONLY; then
+  source "$SCRIPT_DIR/../splash/progress.sh"
+  onscreen_start "$HOST" "Updating board software" "Board software updated"
+  onscreen 5 40 3 "Copying the board software."
+  trap 'onscreen -1 0 1 "Stopped. The board software was not changed."' ERR
+  ssh "$HOST" "sudo mount -o remount,rw $RO 2>/dev/null; true"
+  echo "==> Copying board/"
+  tar -C "$SCRIPT_DIR/.." --exclude=__pycache__ -cf - board \
+    | ssh "$HOST" "sudo tar -C $RO_HOME/launcher --no-same-owner --overwrite -xf - && sudo chown -R ajxd2:ajxd2 $RO_HOME/launcher/board"
+  echo "==> Restarting carrierd"
+  onscreen 50 95 3 "Restarting the board service. Audio pauses for a second."
+  ssh "$HOST" "sudo systemctl restart carrierd && sleep 2 && systemctl is-active carrierd"
+  ssh "$HOST" "sudo mount -o remount,ro $RO 2>/dev/null || true"
+  trap - ERR
+  onscreen 100 100 1 "Running the new version."
+  echo "==> Done."
+  exit 0
+fi
 
 # The managed block: system/config.txt minus comments, the UART line and,
 # without --audio, the audio lines.

@@ -208,6 +208,7 @@ class Board:
         self.in_reverse = power.Latched(0.3)
         self.playing_toggle = False
         self.status = {}
+        self.wheel_v = [None, None]                  # pin 8 (KEY1), pin 18 (KEY2) volts
         self.amp_retry_at = 0.0
         self.amp_backoff = 2.0
         self.lock = threading.Lock()
@@ -261,6 +262,7 @@ class Board:
                 v = self.adc.read(ch)
             except OSError:
                 return
+            self.wheel_v[ch] = round(v, 3)               # live, for /state (wiring checks)
             with self.lock:
                 if self.learner:
                     self.learner.feed(ch, v)
@@ -341,7 +343,7 @@ class Board:
     # -- API -------------------------------------------------------------------
     def state(self):
         with self.lock:
-            return dict(self.status, buttons=self.cfg["buttons"], actions=self.cfg["actions"],
+            return dict(self.status, wheel_v=list(self.wheel_v), buttons=self.cfg["buttons"], actions=self.cfg["actions"],
                         fader=self.cfg["fader"], balance=self.cfg["balance"],
                         learn=self.learner.state if self.learner else None)
 
