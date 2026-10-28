@@ -108,6 +108,56 @@ def launcher_post(path, data):
         log.warning("launcher %s: %s", path, e)
 
 
+CDP_PORT = 9229                                       # react-carplay's DevTools port (server.py)
+
+
+def ws_send(url, text, timeout=2.0):
+    """One text message over a WebSocket (RFC 6455, client side, no
+    extensions) and the first reply. Enough for one DevTools command."""
+    import base64
+    import socket
+    import struct
+    import urllib.parse
+    u = urllib.parse.urlparse(url)
+    with socket.create_connection((u.hostname, u.port or 80), timeout=timeout) as s:
+        key = base64.b64encode(os.urandom(16)).decode()
+        s.sendall((f"GET {u.path} HTTP/1.1\r\nHost: {u.hostname}:{u.port}\r\nUpgrade: websocket\r\n"
+                   f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+        resp = b""
+        while b"\r\n\r\n" not in resp:
+            chunk = s.recv(1024)
+            if not chunk:
+                return None
+            resp += chunk
+        if b" 101 " not in resp.split(b"\r\n", 1)[0]:
+            return None
+        data, mask = text.encode(), os.urandom(4)
+        n = len(data)
+        head = struct.pack("!BB", 0x81, 0x80 | n) if n < 126 else struct.pack("!BBH", 0x81, 0x80 | 126, n)
+        s.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+        reply = resp.split(b"\r\n\r\n", 1)[1]
+        while len(reply) < 2:
+            reply += s.recv(4096)
+        return reply.decode("utf-8", "replace")
+
+
+def cdp_key(key):
+    """Fire react-carplay's keydown handler for `key` through its DevTools
+    port: works whether or not CarPlay is on screen or has focus. False when
+    the port isn't there (CarPlay started without it, or not running)."""
+    code = f"Key{key.upper()}" if len(key) == 1 and key.isalpha() else key
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json", timeout=1) as r:
+            targets = json.load(r)
+        page = next(t for t in targets if t.get("type") == "page" and t.get("webSocketDebuggerUrl"))
+        expr = f"document.dispatchEvent(new KeyboardEvent('keydown', {{code: '{code}', key: '{key}'}}))"
+        reply = ws_send(page["webSocketDebuggerUrl"],
+                        json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": expr}}))
+        return bool(reply and '"result"' in reply)
+    except (OSError, ValueError, StopIteration):
+        return False
+
+
 def carplay_window(env, cls):
     """The visible CarPlay window (largest viewable window of the class), or
     None when the launcher has it hidden."""
@@ -179,13 +229,16 @@ class Board:
             self.send_key("o" if self.playing_toggle else "p")
 
     def send_key(self, key):
-        """Type `key` into CarPlay. react-carplay reads keydown in its page
-        (bindings in its config.json), and Chromium only takes real key
-        events in the focused window: `xdotool key --window` (a synthetic
-        event) is ignored, and the first window of the class is a hidden
-        helper. So: find the visible CarPlay window, focus it, type."""
+        """Send `key` to CarPlay. react-carplay reads keydown in its page
+        (bindings in its config.json). First choice: its DevTools port, which
+        reaches the page even behind the launcher. Fallback: Chromium only
+        takes real key events in the focused window (`xdotool key --window`
+        is ignored, and the first window of the class is a hidden helper),
+        so find the visible CarPlay window, focus it, type."""
         if self.sim:
             log.info("(sim) key %s", key)
+            return
+        if cdp_key(key):                              # works with CarPlay hidden too
             return
         env = dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))
         win = carplay_window(env, self.cfg["carplay_window_class"])

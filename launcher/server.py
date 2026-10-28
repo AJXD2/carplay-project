@@ -63,7 +63,10 @@ APPS = [
         "name": "CarPlay",
         # --enable-logging=stderr makes Electron print the renderer's
         # console (e.g. react-carplay's "starting mic") into /tmp/carplay.log.
-        "cmd": [CARPLAY_BIN, "--no-sandbox", "--enable-logging=stderr"],
+        # The DevTools port (127.0.0.1 only) is how carrierd hands steering
+        # wheel keys to CarPlay's page even while the launcher hides it.
+        "cmd": [CARPLAY_BIN, "--no-sandbox", "--enable-logging=stderr",
+                "--remote-debugging-port=9229"],
         "binary": "react-carplay",
         # AppRun normally gets APPDIR from the AppImage runtime; without it,
         # it guesses from its first argument and fails.
