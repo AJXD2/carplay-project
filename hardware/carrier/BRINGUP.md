@@ -318,6 +318,6 @@ into the Micro-Fit (`tools/harness_diagram.py`).
 | Engine restart with the Pi running | Pass: ACC dropped for ~1 s, battery dipped to 11.6 V, Pi stayed up |
 | Key off -> shutdown | Pass: 8 s countdown, clean halt, board off |
 | Wheel volume, next/previous | Pass after the fixes (tolerances, DevTools key delivery) |
-| Wheel Mode (KEY2, pin 18) | Fail: pin 18 reads 3.30 V open, not the wheel's ~100k: splice or crimp |
-| Fan 1 tach | Reads 0 rpm: check the plug / fan |
+| Wheel Mode (KEY2, pin 18) | Pass: 0.01 V pressed, learned, bound to play/pause |
+| Fan tachs | Pass: both read ~4600-4800 rpm at full speed (the 240 rpm cap was a software bug) |
 | Reverse | Not wired yet |

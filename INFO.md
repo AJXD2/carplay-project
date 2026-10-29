@@ -645,17 +645,19 @@ bring-up log and the in-truck results).
 - **Steering wheel:** Toyota resistor ladder, learned on the touchscreen
   (Settings -> Steering wheel buttons). On this truck volume and seek are
   all on J1 pin 8 (KEY1): seek+ 0.01 V, seek- 0.83 V, vol+ 1.66 V,
-  vol- 2.50 V; idle 3.27 V (the wheel's ~100k idle resistor). Pin 18
-  (KEY2, Mode) reads 3.30 V = not connected: the brown/white splice or the
-  pin 18 crimp. Next/previous reach CarPlay through react-carplay's
+  vol- 2.50 V; idle 3.27 V (the wheel's ~100k idle resistor). Mode is
+  on pin 18 (KEY2) at 0.01 V, learned and bound to play/pause. Next/previous reach CarPlay through react-carplay's
   DevTools port: `server.py` starts it with `--remote-debugging-port=9229`
   (127.0.0.1 only) and carrierd dispatches the bound keydown (KeyM/KeyN)
   in its page, so it works with CarPlay hidden behind the launcher.
   Chromium ignores synthetic `xdotool key --window` events.
 - **Equalizer:** EQ button on the volume bar, 7 bands, `launcher/eq.py`
   (swh-plugins mbeq via module-ladspa-sink, set live over PulseAudio
-  D-Bus). Committed; needs `install.sh --audio` + `deploy.sh` + reboot.
-- **Open items:** Mode (pin 18), fan 1 reads 0 rpm, reverse wire to J1
+  D-Bus). Installed: `carrier_eq` is the default sink.
+- **Fans:** auto by default (the highest of the CPU temperature, volume
+  and dash temperature curves in `board/fans.py`; full speed if the amp
+  runs hot). Settings -> Fans always at full speed switches to max.
+- **Open items:** reverse wire to J1
   pin 10, PETG housing reprint (the redesign is in `tools/housing.py`;
   needs 1 mm washers under the board or the J1 ledge lowered), a
   react-carplay fork (control API, CarPlay night mode from the headlights
