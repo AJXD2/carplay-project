@@ -444,6 +444,7 @@ svg { display: block; }
 .switch[aria-checked="true"]::after { transform: translateX(32px); background: var(--amber); }
 
 .setting.spaced-top { margin-top: 22px; }
+.setting.spaced-top-sm { margin-top: 12px; }
 .pill-btn {
   flex-shrink: 0;
   height: 48px;

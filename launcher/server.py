@@ -430,7 +430,7 @@ def get_board():
 def get_wheel():
     st = get_board()
     return {"available": st is not None, "learn": st and st.get("learn"),
-            "buttons": (st or {}).get("buttons") or {}}
+            "buttons": (st or {}).get("buttons") or {}, "fan_mode": (st or {}).get("fan_mode")}
 
 
 def get_audio_out():
@@ -789,6 +789,9 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/trip":
             ok, state = save_trip(data)
             self._json(200, {"ok": ok, "state": state})
+        elif self.path == "/api/fanmode":
+            st = carrierd_call("/fan_mode", {"mode": data.get("mode")}, timeout=1)
+            self._json(200 if st is not None else 503, {"ok": st is not None, "fan_mode": st and st.get("fan_mode")})
         elif self.path in ("/api/wheel/learn/start", "/api/wheel/learn/skip", "/api/wheel/learn/cancel"):
             # steering-wheel learn mode lives in carrierd; the page can't reach
             # its port directly (different origin)

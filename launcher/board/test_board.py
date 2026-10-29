@@ -209,7 +209,11 @@ class FanTests(unittest.TestCase):
         self.assertAlmostEqual(fans.fan_duty(60), 0.55)
         self.assertEqual(fans.fan_duty(90), 1.0)
         self.assertEqual(fans.fan_duty(30, amp_warning=True), 1.0)
-        self.assertEqual(fans.fan_duty(30, amp_on=True), 1.0)
+        self.assertEqual(fans.fan_duty(30, mode="max"), 1.0)
+        self.assertEqual(fans.fan_duty(30, volume=40, dash_c=25), 0.25)    # quiet, cool: slow
+        self.assertEqual(fans.fan_duty(30, volume=100), 1.0)               # flat out: full
+        self.assertAlmostEqual(fans.fan_duty(30, volume=80), 0.60)
+        self.assertEqual(fans.fan_duty(30, volume=40, dash_c=60), 1.0)     # hot dash: full
 
     def test_pwm_is_inverted(self):
         pwm = hw.SimPwm(0)
@@ -273,9 +277,14 @@ class BoardTests(unittest.TestCase):
             self.board.sample_wheel()
         self.assertIn(("/api/volume", {"delta": 4}), self.posts)
 
-    def test_fans_full_while_amp_runs(self):
+    def test_fan_mode_max_and_auto(self):
+        self.board.cfg["fan_mode"] = "max"
         self.board.tick()
         self.assertEqual(self.board.status["fan_duty"], 1.0)
+        self.board.cfg["fan_mode"] = "auto"
+        self.board.volume = 30
+        self.board.tick()
+        self.assertLess(self.board.status["fan_duty"], 1.0)
 
     def test_amp_hot_notice_once(self):
         self.board.tick()

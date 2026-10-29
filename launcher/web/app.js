@@ -749,6 +749,7 @@ async function refreshWheel() {
     return;
   }
   btn.disabled = false;
+  $("fan-max-toggle").setAttribute("aria-checked", w.fan_mode === "max" ? "true" : "false");
   const n = Object.keys(w.buttons).length;
   $("wheel-help").textContent = n ? `${n} buttons learned. Learn again to redo them.` : "Not learned yet.";
   btn.textContent = n ? "Learn again" : "Learn";
@@ -815,6 +816,21 @@ async function cancelLearn(quiet) {
 }
 
 $("wheel-learn-btn").addEventListener("click", startLearn);
+
+// fan mode lives in carrierd (auto: volume and temperature; max: always full)
+$("fan-max-toggle").addEventListener("click", async () => {
+  const toggle = $("fan-max-toggle");
+  const max = toggle.getAttribute("aria-checked") !== "true";
+  toggle.setAttribute("aria-checked", max ? "true" : "false");
+  try {
+    const r = await postJSON("/api/fanmode", { mode: max ? "max" : "auto" });
+    if (!r.ok) throw new Error();
+    showToast(max ? "Fans at full speed" : "Fans follow volume and heat");
+  } catch (e) {
+    toggle.setAttribute("aria-checked", max ? "false" : "true");
+    showToast("Board service not running", true);
+  }
+});
 $("learn-skip").addEventListener("click", () => postJSON("/api/wheel/learn/skip", {}).catch(() => {}));
 $("learn-cancel").addEventListener("click", () => cancelLearn(false));
 

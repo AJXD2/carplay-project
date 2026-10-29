@@ -8,9 +8,10 @@
   - key off for 8 s -> mute, standby, poweroff (gpio-poweroff then drops
     PI_HOLD and the board switches itself off)
   - headlights -> launcher night mode; reverse -> duck the music
-  - fans at full speed while the amp runs (SoC temperature curve otherwise),
-    tach readback; a notice on the launcher when the amp runs hot or a fan
-    stops
+  - fans: "auto" follows the music volume, the air in the case and the SoC
+    (full speed near full volume or in a hot dash), "max" is always full
+    speed (Settings); tach readback; a notice on the launcher when the amp
+    runs hot or a fan stops
   - battery voltage (ADS1115 AIN2) and dash temperature (DS3231) for the
     launcher's Info view
 
@@ -18,6 +19,7 @@ Local JSON API on 127.0.0.1:8735 for the launcher UI:
   GET  /state
   POST /learn/start | /learn/skip | /learn/cancel
   POST /fader {"fader": -1..1, "balance": -1..1}
+  POST /fan_mode {"mode": "auto" | "max"}
   POST /actions {"vol_up": ["volume", 4], ...}
 
   python3 -m board.carrierd            (from launcher/, on the Pi)
@@ -75,7 +77,8 @@ DEFAULT_ACTIONS = {
     "voice": ["key", "h"],                            # home
 }
 DEFAULTS = {"buttons": {}, "actions": DEFAULT_ACTIONS, "fader": 0.0, "balance": 0.0,
-            "reverse_duck_db": -12.0, "carplay_window_class": "react-carplay"}
+            "reverse_duck_db": -12.0, "carplay_window_class": "react-carplay",
+            "fan_mode": "auto"}
 
 
 def load_config():
@@ -99,6 +102,14 @@ def save_config(cfg, sim=False):
     os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
     if not persist.write_through(CONFIG, data):
         log.error("could not persist %s", CONFIG)
+
+
+def launcher_get(path):
+    try:
+        with urllib.request.urlopen(LAUNCHER + path, timeout=2) as r:
+            return json.load(r)
+    except (OSError, ValueError):
+        return None
 
 
 def launcher_post(path, data):
@@ -218,6 +229,7 @@ class Board:
         self.amp_hot_count = 0                        # overtemp warnings since start
         self.fan_stalled = [0, 0]                     # ticks at 0 rpm while driven
         self.check_fans = not sim                     # the sim's tach lines never pulse
+        self.volume, self.volume_at = None, 0.0       # launcher volume %, for the fans
         self.lock = threading.Lock()
         self.stop = threading.Event()
 
@@ -332,8 +344,13 @@ class Board:
             log.warning("amp overtemp warning (%d since start)", self.amp_hot_count)
             launcher_post("/api/notice", {"text": "Amp ran hot. Check fans and vents"})
         self.amp_hot = hot
-        temp = fans.cpu_temp()
-        duty = fans.fan_duty(temp, hot, self.amp.playing)
+        if not self.sim and now - self.volume_at >= 5.0:
+            v = launcher_get("/api/volume")
+            self.volume = v.get("percent") if v else None
+            self.volume_at = now
+        temp = 45.0 if self.sim else fans.cpu_temp()  # the desktop has no SoC sensor
+        duty = fans.fan_duty(temp, hot, self.cfg.get("fan_mode", "auto"), self.volume,
+                             st.get("board_temp"))
         rpm = []
         for f in self.fans:
             f.set(duty)
@@ -372,7 +389,8 @@ class Board:
     # -- API -------------------------------------------------------------------
     def state(self):
         with self.lock:
-            return dict(self.status, wheel_v=list(self.wheel_v), buttons=self.cfg["buttons"], actions=self.cfg["actions"],
+            return dict(self.status, wheel_v=list(self.wheel_v), fan_mode=self.cfg.get("fan_mode", "auto"),
+                        buttons=self.cfg["buttons"], actions=self.cfg["actions"],
                         fader=self.cfg["fader"], balance=self.cfg["balance"],
                         learn=self.learner.state if self.learner else None)
 
@@ -388,6 +406,11 @@ class Board:
                 self.cfg["fader"] = max(-1.0, min(1.0, float(data.get("fader", self.cfg["fader"]))))
                 self.cfg["balance"] = max(-1.0, min(1.0, float(data.get("balance", self.cfg["balance"]))))
                 self.amp.set_fader(self.cfg["fader"], self.cfg["balance"])
+                save_config(self.cfg, self.sim)
+            elif path == "/fan_mode":
+                if data.get("mode") not in fans.MODES:
+                    return None
+                self.cfg["fan_mode"] = data["mode"]
                 save_config(self.cfg, self.sim)
             elif path == "/actions":
                 self.cfg["actions"].update({k: v for k, v in data.items() if k in swc.LEARN_ORDER})
