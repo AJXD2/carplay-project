@@ -357,6 +357,8 @@ class Board:
         last_in = last_tick = 0.0
         while not self.stop.is_set():
             self.sample_wheel()
+            for f in self.fans:                       # count tach edges continuously: the
+                f.poll_tach()                         # kernel queue only holds 16 per line
             now = time.monotonic()
             if now - last_in >= 0.05:
                 self.poll_inputs()

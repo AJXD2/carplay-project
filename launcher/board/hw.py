@@ -151,14 +151,15 @@ class GpioLine:
 
     def events(self, timeout):
         """Edge events within `timeout` s: list of (timestamp_ns, rising)."""
-        r, _, _ = select.select([self.fd], [], [], timeout)
-        if not r:
-            return []
-        data = os.read(self.fd, EVENT_SIZE * 16)
         out = []
-        for i in range(0, len(data) - EVENT_SIZE + 1, EVENT_SIZE):
-            ts, eid = struct.unpack_from("<QI", data, i)
-            out.append((ts, eid == 1))              # GPIO_V2_LINE_EVENT_RISING_EDGE = 1
+        while select.select([self.fd], [], [], timeout)[0]:
+            # drain the queue: one read returns at most 16 events, which at a
+            # fan's tach rate is a fraction of a second's worth
+            data = os.read(self.fd, EVENT_SIZE * 16)
+            for i in range(0, len(data) - EVENT_SIZE + 1, EVENT_SIZE):
+                ts, eid = struct.unpack_from("<QI", data, i)
+                out.append((ts, eid == 1))          # GPIO_V2_LINE_EVENT_RISING_EDGE = 1
+            timeout = 0
         return out
 
     def close(self):
