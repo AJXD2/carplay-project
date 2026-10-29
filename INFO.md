@@ -531,14 +531,18 @@ reason, the launcher's process management will fight it again.
 
 ## Audio
 
-(Planned: the carrier board in `hardware/carrier/` replaces the USB
-adapter with I2S straight into a 4-channel amp. The Pi then runs at a
-fixed 48 kHz as I2S clock consumer; details in
-[hardware/carrier/README.md](hardware/carrier/README.md) and
-[launcher/board/README.md](launcher/board/README.md). Everything below
-describes the current USB setup.)
+**Since 2026-10-28 the carrier board carries the audio** (installed by
+`launcher/board/install.sh --audio --enable`; details in
+[launcher/board/README.md](launcher/board/README.md) and "Carrier board in
+the truck" below). react-carplay plays through PulseAudio's default sink,
+which is the board: `carrier` (I2S, 32-bit, fixed 48 kHz, the Pi is clock
+consumer), with the equalizer sink `carrier_eq` in front of it once the
+EQ is installed. The mic is `carrier_mic` (the board's PCM1808, mono,
++20 dB). The USB adapter is no longer used; the text below is how the
+USB setup worked, and its fixes (jitter buffer, mediaDelay, PulseAudio
+buffer) still apply.
 
-Everything CarPlay plays (music, calls, Siri, navigation) arrives from the
+Before the board, everything CarPlay plays (music, calls, Siri, navigation) arrives from the
 phone over Wi-Fi to the dongle, then over USB to react-carplay, which plays
 it through PulseAudio to the Unitek USB adapter (`card "Device"`). The mic
 goes the other way: USB adapter -> PulseAudio -> react-carplay
@@ -597,7 +601,15 @@ rename, best-effort remount ro):
   when you change its settings; a watcher thread notices (every 3 s, only
   complete JSON) and persists it.
 
-## Clock (no RTC)
+## Clock
+
+**The carrier board has a DS3231 RTC with a CR2032** (`i2c-rtc,ds3231`
+overlay, `/dev/rtc0`): the kernel sets the system clock from it at boot,
+before any network, and keeps it updated once NTP has synced. It kept time
+to 0.3 s through a full power-off on the bench. Open item: the launcher
+still shows `--:--` until NTP syncs (`time_synced()` in `server.py`); it
+could trust the RTC instead. The rest of this section is the old,
+board-less situation.
 
 The Pi 4 has no real-time clock and no `fake-hwclock` here, so every boot
 starts at whatever time the image last held (currently Mar 31) until
@@ -609,6 +621,45 @@ always shows the phone's time. Real fix: a DS3231 RTC plus
 with `sudo hwclock -w` while online. The carrier board
 (`hardware/carrier/`) has one on board with a CR2032, so this goes away
 once it is installed.
+
+## Carrier board in the truck
+
+Board 2 has been in the truck since 2026-10-28 (board 1 needs its audio
+oscillator reworked, see `hardware/carrier/BRINGUP.md`, which also has the
+bring-up log and the in-truck results).
+
+- **Installing/updating:** `launcher/board/install.sh --audio --enable`
+  (tools, config.txt block, audio overlay, PulseAudio, carrierd; add
+  `--reboot` when boot settings change). For carrierd code changes only:
+  `install.sh --board-only` (copies `board/`, restarts carrierd). The
+  launcher itself still goes out with `launcher/deploy.sh`. Full system
+  upgrades: `launcher/upgrade.sh`. All of them show the update view (full
+  screen, tap to shrink to a card, chime) on the Pi's screen.
+- **carrierd** (`launcher/board/`): amp start/fault recovery, fans (full
+  speed while the amp plays), key-off shutdown (8 s, rides through
+  cranking), headlights -> night mode, reverse -> music -12 dB, battery
+  voltage and dash temperature, steering wheel, notices on the home screen
+  (amp ran hot, fan stopped). State: `curl 127.0.0.1:8735/state` (includes
+  `wheel_v`, the live voltage on both wheel wires). Launcher Info -> Car tab
+  shows the same.
+- **Steering wheel:** Toyota resistor ladder, learned on the touchscreen
+  (Settings -> Steering wheel buttons). On this truck volume and seek are
+  all on J1 pin 8 (KEY1): seek+ 0.01 V, seek- 0.83 V, vol+ 1.66 V,
+  vol- 2.50 V; idle 3.27 V (the wheel's ~100k idle resistor). Pin 18
+  (KEY2, Mode) reads 3.30 V = not connected: the brown/white splice or the
+  pin 18 crimp. Next/previous reach CarPlay through react-carplay's
+  DevTools port: `server.py` starts it with `--remote-debugging-port=9229`
+  (127.0.0.1 only) and carrierd dispatches the bound keydown (KeyM/KeyN)
+  in its page, so it works with CarPlay hidden behind the launcher.
+  Chromium ignores synthetic `xdotool key --window` events.
+- **Equalizer:** EQ button on the volume bar, 7 bands, `launcher/eq.py`
+  (swh-plugins mbeq via module-ladspa-sink, set live over PulseAudio
+  D-Bus). Committed; needs `install.sh --audio` + `deploy.sh` + reboot.
+- **Open items:** Mode (pin 18), fan 1 reads 0 rpm, reverse wire to J1
+  pin 10, PETG housing reprint (the redesign is in `tools/housing.py`;
+  needs 1 mm washers under the board or the J1 ledge lowered), a
+  react-carplay fork (control API, CarPlay night mode from the headlights
+  via the dongle's enableNightMode command, the audio fix in source).
 
 ## Security notes
 

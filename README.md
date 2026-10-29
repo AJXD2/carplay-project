@@ -37,11 +37,14 @@ CarPlay, one tile among the others:
   temp warnings and IP-address notifications, since CarPlay runs
   fullscreen with no window chrome to show that otherwise.
 - **`hardware/carrier/`**: the in-truck board the Pi mounts on (power
-  from the car, 4-channel amp, steering-wheel buttons, RTC, fans). Design
-  in progress; see its [README](hardware/carrier/README.md).
+  from the car, 4-channel amp, steering-wheel buttons, RTC, fans). Built
+  and running in the truck since 2026-10-28; see its
+  [README](hardware/carrier/README.md) and
+  [BRINGUP.md](hardware/carrier/BRINGUP.md).
 - **`launcher/board/`**: `carrierd`, the service that runs that board
-  (amp, wheel buttons, key-off shutdown, fans). Not deployed until the
-  board exists.
+  (amp, wheel buttons, key-off shutdown, fans), installed with
+  `launcher/board/install.sh`. Current state and open items: INFO.md,
+  "Carrier board in the truck".
 
 ## Quick start
 

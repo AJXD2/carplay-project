@@ -304,3 +304,20 @@ Notes from 2026-10-24:
   moves to the board).
 - Music (30 s of a trailer soundtrack) played on RL through the earpiece at
   -30 dB with no faults.
+
+## In the truck (board 2, 2026-10-28)
+
+Harness: Klintotour Toyota adapter, 16-pin Android end cut off and crimped
+into the Micro-Fit (`tools/harness_diagram.py`).
+
+| Check | Result |
+|---|---|
+| Audio, all four speakers, CarPlay, mic | Pass (amp DC diagnostics clean at start, no faults) |
+| Battery reading | 13.7 V running, 12.9 V off |
+| Headlights -> night mode | Pass |
+| Engine restart with the Pi running | Pass: ACC dropped for ~1 s, battery dipped to 11.6 V, Pi stayed up |
+| Key off -> shutdown | Pass: 8 s countdown, clean halt, board off |
+| Wheel volume, next/previous | Pass after the fixes (tolerances, DevTools key delivery) |
+| Wheel Mode (KEY2, pin 18) | Fail: pin 18 reads 3.30 V open, not the wheel's ~100k: splice or crimp |
+| Fan 1 tach | Reads 0 rpm: check the plug / fan |
+| Reverse | Not wired yet |

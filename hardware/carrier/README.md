@@ -26,10 +26,10 @@ Software for it lives in [`launcher/board/`](../../launcher/board/README.md).
 | Routing | Done. 0 unrouted, 0 DRC errors, schematic parity 0. |
 | Silkscreen tidy | Done (10 cosmetic silkscreen warnings left). |
 | Pi position on the screen | Measured on the real screen and confirmed with a printed fit test (see Mechanical). |
-| Software | Written and tested on simulated hardware (18 tests), not installed. |
+| Software | Installed and running in the truck (`launcher/board/install.sh`, carrierd); 21 tests on simulated hardware. |
 | Simulation + assembly check | Done 2026-09-29: SPICE on every analog block, pinouts and land patterns against datasheets, placement file against JLC's footprints ([VERIFICATION.md](VERIFICATION.md)). |
 | Housing | Designed (`tools/housing.py`): PETG shell + fan lid, clearance-checked against the board, Pi and screen, and checked that each part can go in. First shell printed as a dash and screen fit test; its lid screw blocks stopped the board going in, now moved. Shell and lid to be reprinted. |
-| Ordering | Not yet. |
+| Ordering | Rev A built (2 boards). Board 2 in the truck since 2026-10-28; board 1 has dead audio clocks (X1 or U8 joint, to rework). Bring-up log and in-truck results: [BRINGUP.md](BRINGUP.md). |
 
 ## How it works, block by block
 
