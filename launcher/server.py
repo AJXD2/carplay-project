@@ -329,6 +329,9 @@ def set_dimmed(dimmed):
 # night mode still works (and survives a Chromium reload) on a screen
 # without a controllable backlight.
 night_mode = get_dimmed()
+# a hardware notice from carrierd (amp ran hot, fan stopped), shown on the
+# home screen until tapped away
+notice = None
 
 
 # -- info view --------------------------------------------------------------
@@ -685,6 +688,7 @@ class Handler(BaseHTTPRequestHandler):
                 "time_synced": time_synced(),
                 "volume": get_volume(),
                 "dimmed": night_mode,
+                "notice": notice,
             })
         elif path == "/api/volume":
             self._json(200, {"percent": get_volume()})
@@ -798,6 +802,11 @@ class Handler(BaseHTTPRequestHandler):
             night_mode = bool(data.get("dimmed"))
             backlight = set_dimmed(night_mode)
             self._json(200, {"ok": True, "backlight": backlight, "dimmed": night_mode})
+        elif self.path == "/api/notice":
+            global notice
+            text = data.get("text")
+            notice = str(text)[:80] if text else None
+            self._json(200, {"ok": True, "notice": notice})
         elif self.path == "/api/devices/remove":
             mac = data.get("mac")
             if not mac:

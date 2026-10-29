@@ -50,20 +50,26 @@ import place  # noqa: E402
 PILLAR_TOP = assembly.DISPLAY_T + assembly.PI_STANDOFF        # 12.25
 BOARD_Z0 = assembly.Z_BOARD                                   # carrier underside, 26.85
 BOARD_Z1 = BOARD_Z0 + assembly.BOARD_T                        # carrier top, 28.45
-HEATSINK_TOP = BOARD_Z1 + assembly.AMP_PAD_Z + assembly.HS_TAPE + assembly.HS_H
+HEATSINK_TOP = assembly.heatsink_top()
 
 # ---- outline (board coordinates, y down) ----
 SX, SY = place.OUTLINE_SHIFT
 W, H = 164.9, 102.0                       # display = board outline
 CLR = 0.5                                 # display / board edge to the inner wall
-WALL = 2.4
+WALL = 2.4                                # side walls
+WALL_TB = 1.6                             # top / bottom walls: the screen is nearly as tall as the kit opening
 CORNER_R = 3.0                            # outside corners
-# the dash opening is 6.60 mm wider than the plain shell (fit ring): the
-# driver side wall (board x high, the mic jack side) takes all of it
-SIDE_FILL = 6.6
+# The whole housing slides through the Metra 95-8210 trim panel's double DIN
+# opening, measured with a ruler at about 7" x 4 1/4" (177.8 x 108.0): keep
+# KIT_CLR to it on every side (check() fails otherwise). The driver side
+# wall (board x high, the mic jack side) takes the spare width, thick enough
+# for the lid inserts.
+KIT_OPENING = (177.8, 108.0)
+KIT_CLR = 0.5
+SIDE_FILL = 6.0
 IX0, IY0 = SX - CLR, SY - CLR             # inner wall faces
 IX1, IY1 = SX + W + CLR, SY + H + CLR
-OX0, OY0, OX1, OY1 = IX0 - WALL, IY0 - WALL, IX1 + WALL + SIDE_FILL, IY1 + WALL
+OX0, OY0, OX1, OY1 = IX0 - WALL, IY0 - WALL_TB, IX1 + WALL + SIDE_FILL, IY1 + WALL_TB
 
 SKIRT_Z = 0.0                             # shell's front rim: flush with the glass front (2.0 left the glass edge and FPC showing)
 # shell's back rim = lid underside: 52 for the bare HAT stack, raised by the
@@ -86,28 +92,40 @@ RIBS_X = [(91.0, 96.0), (139.0, 144.0)]   # lid ribs pressing the board's top ed
 RIB_Y1 = SY + 2.0                         # 2 mm edge strip (copper stays 2.5 mm from the edge)
 J1_OPENING = (98.0, 1.0, 137.0, 18.0)     # lid cut-out the harness plug passes through
 
-# ---- lid screws: M3 heat-set inserts in blocks on the top and bottom walls ----
-# Kept off the corners: the pillar screws sit there and need a screwdriver
-# straight down from the open back.
-LID_BOSSES = [(25.0, "top"), (150.0, "top"), (60.0, "bottom"), (130.0, "bottom")]
-BOSS_W, BOSS_D, BOSS_H = 8.0, 7.0, 8.0    # along the wall, into the box, tall
+# ---- lid screws: M3 heat-set inserts, all outside the board's path in ----
+# The board drops in from the open back with 0.5 mm to the walls, so nothing
+# may reach in over its outline. Two inserts go straight down into the top of
+# the thick driver-side wall; two sit in small blocks on the passenger wall,
+# inside the Pi port notch where the board has no copper or edge. Kept off
+# the corners: the pillar screws sit there and need a screwdriver straight
+# down from the open back.
+DRIVER_INSERT_Y = (20.0, 82.0)
+BOSS_Y = (35.0, 84.0)                     # passenger blocks (notch: y 30.6 .. 88.6)
+BOSS_W, BOSS_D, BOSS_H = 7.6, 7.0, 8.0    # along the wall, into the box, tall: 1.8 mm beside the insert
 BOSS_INSET = 3.0                          # insert axis from the inner wall
-INSERT_HOLE, INSERT_DEPTH = 4.0, 6.5      # M3 x 5.7 heat-set insert
+INSERT_HOLE, INSERT_DEPTH = 4.2, 7.0      # M3 x 5.7 x 4.6 heat-set insert: printed 4.0 holes came out too small
+                                          # for its lead-in; 1.3 mm deeper for the displaced plastic
 LID_SCREW, CSK = 3.4, 6.6                 # M3 countersunk
 
-
-# ---- bracket points for later dash mounting: outside pads, M3 heat-set ----
+# ---- Metra 95-8210 side brackets: M3 heat-set inserts pressed in from outside ----
+# Where the old outside pads had them (they lined up with the bracket slots).
+# Driver side: straight into the thick wall. Passenger side: only the lower
+# one, in a block inside the Pi port notch; the upper one is beside the
+# board's edge, where a block would stop the board going in and the 2.4 mm
+# wall has no room for an insert. So three screws.
 BRACKET_Y = (25.0, 77.0)
 BRACKET_Z = 34.0
-PAD_W, PAD_H, PAD_P = 10.0, 10.0, 4.5     # along the wall, tall, proud
-PAD_HOLE_DEPTH = 6.0
+BRACKET_BOSS, BRACKET_BOSS_D = 8.0, 6.0   # passenger block: along the wall and tall, into the box
+BRACKET_HOLE_DEPTH = INSERT_DEPTH
+
+
 
 # ---- fans: Noctua NF-A4x10 5V PWM, 40 x 40 x 10, holes 32 mm apart ----
 FAN, FAN_T, FAN_HOLES = 40.0, 10.0, 32.0
 FAN_SCREW = 3.4
 GRILLE_D, GRILLE_SLOT, GRILLE_PITCH = 37.0, 3.0, 5.0
 FAN1 = (place.AMP_AT[0] - 2.0, place.AMP_AT[1])   # over the heatsink (2 mm left: clears the lid lip)
-FAN2 = (24.0, 60.0)                               # over the Pi's port notch
+FAN2 = (26.0, 60.0)                               # over the Pi's port notch, clear of the lid blocks
 FAN_Z1 = TOP_Z
 FAN_Z0 = FAN_Z1 - FAN_T
 
@@ -166,9 +184,10 @@ def wedge(along, a0, a1, wall, d, z_top, inward):
     return cq.Workplane(pl).polyline(pts).close().extrude(a1 - a0)
 
 
-def lid_boss_xy(x, side):
-    """Insert axis of a lid boss (board coordinates)."""
-    return (x, IY0 + BOSS_INSET) if side == "top" else (x, IY1 - BOSS_INSET)
+def lid_inserts():
+    """Insert axes of the four lid screws (board coordinates)."""
+    return ([(IX1 + (WALL + SIDE_FILL) / 2, y) for y in DRIVER_INSERT_Y]
+            + [(IX0 + BOSS_INSET, y) for y in BOSS_Y])
 
 
 def slots(along, a0, a1, wall0, wall1, z0, z1, keep_out=()):
@@ -190,21 +209,19 @@ def slots(along, a0, a1, wall0, wall1, z0, z1, keep_out=()):
 
 def vents():
     """All vent slots, as (wall, solid) pairs."""
-    bosses_x = {side: [(x - BOSS_W / 2 - 3, x + BOSS_W / 2 + 3) for x, s in LID_BOSSES if s == side]
-                for side in ("top", "bottom")}
     corners_y = [(IY0, IY0 + TAB + 4), (IY1 - TAB - 4, IY1)]
-    pads = [(y - PAD_W / 2 - 2, y + PAD_W / 2 + 2) for y in BRACKET_Y]
     mic = [(MIC_HOLE[0] - MIC_D / 2 - 2, MIC_HOLE[0] + MIC_D / 2 + 2)]
+    brackets = [(y - INSERT_HOLE / 2 - 4, y + INSERT_HOLE / 2 + 4) for y in BRACKET_Y]
     e = 0.1
     v = []
     # Pi level: fan 2 pushes air down the port notch, under the board, and out here
     v += slots("x", 15.0, 88.0, OY0 - e, IY0 + e, *LOW_Z)                        # top (ledge from 90)
     v += slots("x", 15.0, 147.0, IY1 - e, OY1 + e, *LOW_Z)                       # bottom
-    v += slots("y", IY0, IY1, IX1 - e, OX1 + e, *LOW_Z, keep_out=corners_y + pads)  # right
+    v += slots("y", IY0, IY1, IX1 - e, OX1 + e, *LOW_Z, keep_out=corners_y)         # right
     # above the board: fan 1's air off the heatsink
-    v += slots("y", IY0, IY1, IX1 - e, OX1 + e, *HIGH_Z, keep_out=corners_y + pads + mic)  # right
-    v += slots("x", 95.0, 146.0, IY1 - e, OY1 + e, *HIGH_Z, keep_out=bosses_x["bottom"])  # bottom
-    v += slots("x", 35.0, 88.0, OY0 - e, IY0 + e, *HIGH_Z, keep_out=bosses_x["top"])     # top, clear of J1
+    v += slots("y", IY0, IY1, IX1 - e, OX1 + e, *HIGH_Z, keep_out=corners_y + mic + brackets)  # right
+    v += slots("x", 95.0, 146.0, IY1 - e, OY1 + e, *HIGH_Z)                     # bottom
+    v += slots("x", 35.0, 88.0, OY0 - e, IY0 + e, *HIGH_Z)                      # top, clear of J1
     return v
 
 
@@ -230,27 +247,26 @@ def shell():
     body = body.union(box(LEDGE_X[0], IY0, lz1 - 2.0, LEDGE_X[1], LEDGE_Y1, lz1))
     body = body.union(wedge("x", *LEDGE_X, IY0, d, lz1 - 2.0, 1))
 
-    # lid screw blocks (M3 heat-set from the back), 45-degree support under each
-    for x, side in LID_BOSSES:
-        inward = 1 if side == "top" else -1
-        wall = IY0 if side == "top" else IY1
-        z0 = TOP_Z - BOSS_H
-        blk = box(x - BOSS_W / 2, wall, z0, x + BOSS_W / 2, wall + inward * BOSS_D, TOP_Z)
-        blk = blk.union(wedge("x", x - BOSS_W / 2, x + BOSS_W / 2, wall, BOSS_D, z0, inward))
-        hx, hy = lid_boss_xy(x, side)
-        blk = blk.cut(cq.Workplane("XY").workplane(offset=TOP_Z - INSERT_DEPTH).center(hx, hy)
-                      .circle(INSERT_HOLE / 2).extrude(INSERT_DEPTH + 1))
-        body = body.union(blk)
+    # lid screw blocks on the passenger wall, 45-degree support under each
+    z0 = TOP_Z - BOSS_H
+    for y in BOSS_Y:
+        body = body.union(box(IX0, y - BOSS_W / 2, z0, IX0 + BOSS_D, y + BOSS_W / 2, TOP_Z))
+        body = body.union(wedge("y", y - BOSS_W / 2, y + BOSS_W / 2, IX0, BOSS_D, z0, 1))
+    # M3 heat-set insert holes, pressed in from the back
+    for hx, hy in lid_inserts():
+        body = body.cut(cq.Workplane("XY").workplane(offset=TOP_Z - INSERT_DEPTH).center(hx, hy)
+                        .circle(INSERT_HOLE / 2).extrude(INSERT_DEPTH + 1))
 
-    # bracket pads outside the side walls, 45-degree support under each
-    for y in BRACKET_Y:
-        for wall, out in ((OX0, -1), (OX1, 1)):
-            z0 = BRACKET_Z - PAD_H / 2
-            pad = box(wall, y - PAD_W / 2, z0, wall + out * PAD_P, y + PAD_W / 2, z0 + PAD_H)
-            pad = pad.union(wedge("y", y - PAD_W / 2, y + PAD_W / 2, wall, PAD_P, z0, out))
-            hole = (cq.Workplane("YZ").workplane(offset=wall + out * (PAD_P + 0.1))
-                    .center(y, BRACKET_Z).circle(INSERT_HOLE / 2).extrude(-out * (PAD_HOLE_DEPTH + 0.1)))
-            body = body.union(pad).cut(hole)
+    # Metra bracket screws: a block for the passenger side's lower one, then
+    # the insert holes (driver side straight into the thick wall)
+    yb, z0 = BRACKET_Y[1], BRACKET_Z - BRACKET_BOSS / 2
+    body = body.union(box(IX0, yb - BRACKET_BOSS / 2, z0, IX0 + BRACKET_BOSS_D, yb + BRACKET_BOSS / 2,
+                          z0 + BRACKET_BOSS))
+    body = body.union(wedge("y", yb - BRACKET_BOSS / 2, yb + BRACKET_BOSS / 2, IX0, BRACKET_BOSS_D, z0, 1))
+    for wall, out, ys in ((OX1, 1, BRACKET_Y), (OX0, -1, BRACKET_Y[1:])):
+        for y in ys:
+            body = body.cut(cq.Workplane("YZ").workplane(offset=wall + out * 0.1).center(y, BRACKET_Z)
+                            .circle(INSERT_HOLE / 2).extrude(-out * (BRACKET_HOLE_DEPTH + 0.1)))
 
     # openings
     for v in vents():
@@ -272,11 +288,9 @@ def lid():
     a, b = LIP_CLR, LIP_CLR + LIP_W
     lip = box(IX0 + a, IY0 + a, TOP_Z - LIP_H, IX1 - a, IY1 - a, TOP_Z)
     lip = lip.cut(box(IX0 + b, IY0 + b, TOP_Z - LIP_H - 1, IX1 - b, IY1 - b, TOP_Z + 1))
-    for x, side in LID_BOSSES:
-        wall = IY0 if side == "top" else IY1
-        inward = 1 if side == "top" else -1
-        lip = lip.cut(box(x - BOSS_W / 2 - 0.4, wall - inward, TOP_Z - LIP_H - 1,
-                          x + BOSS_W / 2 + 0.4, wall + inward * (BOSS_D + 0.4), TOP_Z + 1))
+    for y in BOSS_Y:
+        lip = lip.cut(box(IX0 - 1, y - BOSS_W / 2 - 0.4, TOP_Z - LIP_H - 1,
+                          IX0 + BOSS_D + 0.4, y + BOSS_W / 2 + 0.4, TOP_Z + 1))
     plate = plate.union(lip)
 
     # ribs that stop the board lifting when the harness is pulled out
@@ -304,8 +318,7 @@ def lid():
     plate = plate.cut(rounded_rect(x0, y0, x1, y1, TOP_Z - 2, TOP_Z + LID_T + 1, 2.0))
 
     # countersunk M3 holes into the shell's inserts
-    for x, side in LID_BOSSES:
-        hx, hy = lid_boss_xy(x, side)
+    for hx, hy in lid_inserts():
         plate = plate.cut(cq.Workplane("XY").workplane(offset=TOP_Z - 1).center(hx, hy)
                           .circle(LID_SCREW / 2).extrude(LID_T + 2))
         plate = plate.cut(cq.Workplane("XY").workplane(offset=TOP_Z + LID_T - (CSK - LID_SCREW) / 2)
@@ -354,6 +367,29 @@ def clashes(parts, others, tol=0.01):
     return bad
 
 
+SCREWDRIVER_D = 7.0                       # shank + hand clearance over the pillar screws
+
+
+def paths():
+    """What must pass the shell on the way in, as straight prisms (assembly
+    frame): the screen from the front up to the pillar tops, the Pi (with
+    its ports) from the back down onto the pillars, the board from the back
+    down onto its standoffs, and a screwdriver down onto each pillar screw."""
+    far = TOP_Z + 20
+    out = [("screen in", to_asm(box(SX, SY, -20, SX + W, SY + H, PILLAR_TOP)))]
+    bbs = [s.val().BoundingBox() for _, s in assembly.pi4()]
+    out.append(("Pi in", box(min(b.xmin for b in bbs), min(b.ymin for b in bbs), PILLAR_TOP,
+                             max(b.xmax for b in bbs), max(b.ymax for b in bbs), far)))
+    board = (cq.Workplane("XY").workplane(offset=BOARD_Z0)
+             .polyline(place.outline_points(0, 0, W, H)).close().extrude(far - BOARD_Z0))
+    out.append(("board in", to_asm(board)))
+    for i, (px, py) in enumerate(PILLARS):
+        out.append((f"screwdriver {i + 1}", to_asm(cq.Workplane("XY").workplane(offset=PILLAR_TOP + TAB_T)
+                                                   .center(px, py).circle(SCREWDRIVER_D / 2)
+                                                   .extrude(far))))
+    return [(n, p.val()) for n, p in out]
+
+
 def check(sh, li):
     obs = obstacles()
     fan_solids = [(f"fan{i + 1}", to_asm(f).val()) for i, f in enumerate(fans())]
@@ -362,6 +398,30 @@ def check(sh, li):
     for a, b, v in bad:
         print(f"  CLASH {a} / {b}: {v:.2f} mm3")
     print(f"clearance check: {len(bad)} clashes")
+    blocked = clashes([("shell", sh.val())], paths())
+    for _, b, v in blocked:
+        print(f"  BLOCKED {b}: {v:.2f} mm3 of shell in the way")
+    print(f"insertion check: {len(blocked)} blocked")
+    bad += blocked
+    # the shell and lid slide through the trim panel's opening
+    bb = sh.union(li).val().BoundingBox()
+    gaps = [(o - d) / 2 for o, d in zip(KIT_OPENING, (bb.xlen, bb.ylen))]
+    ok = all(g >= KIT_CLR for g in gaps)
+    print(f"kit opening {KIT_OPENING[0]:.1f} x {KIT_OPENING[1]:.1f}: housing {bb.xlen:.1f} x {bb.ylen:.1f}, "
+          f"{gaps[0]:.2f} mm each side, {gaps[1]:.2f} top and bottom{'' if ok else '  TOO BIG'}")
+    if not ok:
+        bad.append(("housing", "kit opening", 0.0))
+    # the heatsink against the board's parts, skipping U7 under it: its model
+    # is KiCad's generic SSOP-56 (2.99 mm tall), the real DKQ package 2.33 mm
+    ax, ay = assembly.to_asm(*place.AMP_AT)
+    parts = [(n, s) for n, s in obs if n.startswith("board ")
+             and abs(s.Center().x - ax) + abs(s.Center().y - ay) > 1.0]
+    under = clashes([("heatsink", assembly.heatsink_placed().val())], parts)
+    for _, b, v in under:
+        print(f"  CLASH heatsink / {b}: {v:.2f} mm3")
+    print(f"heatsink ({assembly.HEATSINK}) on the board: {len(under)} clashes")
+    bad += under
+    print(f"  fan 2 to the passenger blocks: {FAN2[0] - FAN / 2 - (IX0 + BOSS_D):.2f} mm")
     j1 = pcb_at("J1")
     print(f"  fan 1 above the heatsink:  {FAN_Z0 - HEATSINK_TOP:.2f} mm")
     print(f"  ledge / ribs to the board: {SUPPORT_GAP:.2f} mm")

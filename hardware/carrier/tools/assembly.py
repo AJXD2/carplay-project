@@ -9,12 +9,13 @@ firewall. The glass faces -z.
 Sources: display 165 x 103 mm (Hosyond drawing); Pi position from
 place.PI (measured from Hosyond's back-view drawing); Pi 4 outline, holes
 and connectors from the Raspberry Pi 4 mechanical drawing; board from
-KiCad's STEP export; the rev A stock 20 x 20 x 10 mm heatsink on the amp;
+KiCad's STEP export; the amp heatsink (HEATSINK below);
 housing and fans from tools/housing.py. Display 8.25 mm thick and its rear
 parts and M2.5 pillars 4.0 mm on top of that (12.25 mm total) from the
 Hosyond drawing; check against the real screen with calipers.
 
     .venv/bin/python tools/assembly.py    ->  mech/assembly.step/.stl
+    HEATSINK=cnc .venv/bin/python tools/housing.py   (any tool: pick the heatsink)
 """
 import math
 import os
@@ -43,7 +44,16 @@ BOARD_T = 1.6
 BOARD_ORIGIN = (100.0, 100.0)   # where gen_pcb puts the board's top-left corner
 AMP_PAD_Z = 2.33         # TAS6424 top (thermal pad) above the board
 HS_TAPE = 0.25           # thermal tape
-HS_W, HS_H = 20.0, 10.0  # rev A stock heatsink
+HS_PASTE = 0.05          # thermal paste, clamped
+HS_W, HS_H = 20.0, 10.0  # stock heatsink
+# Amp heatsink options (README "Amp heatsink"), picked with HEATSINK=...:
+#   stock   one 20 x 20 x 10 on thermal tape, centred on the chip (rev A)
+#   double  two 20 x 20 x 10 end to end along the chip on paste, each screwed
+#           up through H5 / H6 on ~2 mm of washers; 0.5 mm toward H5 so the
+#           pair stays inside the board edge
+#   cnc     tools/heatsink.py on paste, screwed through H5 / H6
+HEATSINK = os.environ.get("HEATSINK", "stock")
+DOUBLE_SHIFT = -0.5
 
 Z_PI = DISPLAY_T + PI_STANDOFF
 Z_BOARD = Z_PI + PI_T + PI_SPACER + HAT_GAP + BOARD_WASHER
@@ -132,12 +142,31 @@ def coin_cell_stand_in():
     return cq.Workplane("XY").circle(11.0).extrude(5.5).translate((x, y, Z_BOARD + BOARD_T))
 
 
+def heatsink_z0():
+    """Underside of the heatsink's base: the chip's top pad + the interface."""
+    return Z_BOARD + BOARD_T + AMP_PAD_Z + (HS_TAPE if HEATSINK == "stock" else HS_PASTE)
+
+
+def heatsink_top():
+    if HEATSINK == "cnc":
+        import heatsink
+        return heatsink_z0() + heatsink.BASE + heatsink.FIN_H
+    return heatsink_z0() + HS_H
+
+
 def heatsink_placed():
-    """Rev A: a stock 20 x 20 x 10 mm heatsink taped onto the chip's top pad
-    (the CNC one in tools/heatsink.py is not fitted)."""
+    """The HEATSINK option on the chip (stock heatsinks as plain blocks)."""
     x, y = to_asm(*place.AMP_AT)
-    z = Z_BOARD + BOARD_T + AMP_PAD_Z + HS_TAPE
-    return box(x - HS_W / 2, y - HS_W / 2, x + HS_W / 2, y + HS_W / 2, z, z + HS_H)
+    z = heatsink_z0()
+    if HEATSINK == "stock":
+        return box(x - HS_W / 2, y - HS_W / 2, x + HS_W / 2, y + HS_W / 2, z, z + HS_H)
+    if HEATSINK == "double":
+        x += DOUBLE_SHIFT
+        return box(x - HS_W, y - HS_W / 2, x + HS_W, y + HS_W / 2, z, z + HS_H)
+    if HEATSINK == "cnc":
+        import heatsink   # long side along its y: turn it onto the chip's axis (board x)
+        return heatsink.build().rotate((0, 0, 0), (0, 0, 1), 90).translate((x, y, z))
+    raise SystemExit(f"HEATSINK={HEATSINK}: use stock, double or cnc")
 
 
 def build(housing=True, cut=None):

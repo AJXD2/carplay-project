@@ -10,9 +10,12 @@ import time
 CURVE = [(45.0, 0.25), (55.0, 0.40), (65.0, 0.70), (72.0, 1.00)]   # (deg C, fan duty)
 
 
-def fan_duty(temp_c, amp_warning=False):
-    """Fan duty 0..1 from the hotter of CPU/board temperature."""
-    if amp_warning:
+def fan_duty(temp_c, amp_warning=False, amp_on=False):
+    """Fan duty 0..1. Full speed while the amp runs: it heats with the music,
+    which the SoC temperature doesn't show, and fan 1 is most of its cooling
+    (hardware/carrier/tools/heatsink_thermal.py). Otherwise a curve on the
+    SoC temperature."""
+    if amp_warning or amp_on:
         return 1.0
     if temp_c <= CURVE[0][0]:
         return CURVE[0][1]

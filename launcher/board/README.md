@@ -10,7 +10,7 @@ Python only; the I2C and GPIO access uses the kernel interfaces directly.
 | `tas6424.py` | Amp bring-up (datasheet order), fader, fault recovery, thermal trim |
 | `swc.py` | ADS1115 reader, button decoder with hold-repeat, learn mode |
 | `power.py` | Key-off timer (rides out cranking), PWM-dimmer averaging, debounce |
-| `fans.py` | Fan curve, tach RPM (the PWM is inverted by the board's FET) |
+| `fans.py` | Full speed while the amp runs, SoC temperature curve otherwise; tach RPM (the PWM is inverted by the board's FET). `carrierd` puts a notice on the home screen when the amp runs hot or a fan reads 0 rpm |
 | `hw.py` | I2C (`I2C_RDWR`), GPIO chardev v2, sysfs PWM, plus simulated twins |
 | `sim.py` | Register models of the TAS6424 and ADS1115 |
 | `system/` | `config.txt` lines, the I2S overlay, the systemd unit |

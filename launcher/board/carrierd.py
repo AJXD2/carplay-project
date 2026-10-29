@@ -8,7 +8,9 @@
   - key off for 8 s -> mute, standby, poweroff (gpio-poweroff then drops
     PI_HOLD and the board switches itself off)
   - headlights -> launcher night mode; reverse -> duck the music
-  - fan curve from the SoC temperature, tach readback
+  - fans at full speed while the amp runs (SoC temperature curve otherwise),
+    tach readback; a notice on the launcher when the amp runs hot or a fan
+    stops
   - battery voltage (ADS1115 AIN2) and dash temperature (DS3231) for the
     launcher's Info view
 
@@ -41,6 +43,7 @@ log = logging.getLogger("carrierd")
 CONFIG = os.path.expanduser("~/.config/carrierd/config.json")
 LAUNCHER = "http://127.0.0.1:8734"
 API_PORT = 8735
+FAN_STALL_S = 5                                       # 0 rpm this many ticks while driven -> stopped
 
 # BCM GPIO numbers (hardware/carrier/tools/gen_sch.py PI_GPIO)
 GPIO = dict(acc=17, lights=27, reverse=7, amp_stby=22, amp_mute=23, amp_fault=24,
@@ -211,6 +214,10 @@ class Board:
         self.wheel_v = [None, None]                  # pin 8 (KEY1), pin 18 (KEY2) volts
         self.amp_retry_at = 0.0
         self.amp_backoff = 2.0
+        self.amp_hot = False
+        self.amp_hot_count = 0                        # overtemp warnings since start
+        self.fan_stalled = [0, 0]                     # ticks at 0 rpm while driven
+        self.check_fans = not sim                     # the sim's tach lines never pulse
         self.lock = threading.Lock()
         self.stop = threading.Event()
 
@@ -317,14 +324,34 @@ class Board:
         except OSError:
             st["battery_v"] = None
         st["board_temp"] = None if self.sim else board_temp()
+        hot = bool(amp.get("overtemp_warning"))
+        if hot and not self.amp_hot:
+            # with the fans at full speed this should only happen with dust,
+            # a dead fan or a very hot dash: say so where the driver sees it
+            self.amp_hot_count += 1
+            log.warning("amp overtemp warning (%d since start)", self.amp_hot_count)
+            launcher_post("/api/notice", {"text": "Amp ran hot. Check fans and vents"})
+        self.amp_hot = hot
         temp = fans.cpu_temp()
-        duty = fans.fan_duty(temp, bool(amp.get("overtemp_warning")))
+        duty = fans.fan_duty(temp, hot, self.amp.playing)
         rpm = []
         for f in self.fans:
             f.set(duty)
             rpm.append(f.poll_tach())
-        st.update(amp=amp, amp_playing=self.amp.playing, cpu_temp=temp, fan_duty=round(duty, 2),
-                  fan_rpm=rpm)
+        self.watch_fans(rpm, duty)
+        st.update(amp=amp, amp_playing=self.amp.playing, amp_hot_count=self.amp_hot_count,
+                  cpu_temp=temp, fan_duty=round(duty, 2), fan_rpm=rpm)
+
+    def watch_fans(self, rpm, duty):
+        """A driven fan reading 0 rpm for FAN_STALL_S ticks: tell the launcher
+        once. The amp shuts down in a hot car without fan 1's air."""
+        if not self.check_fans:
+            return
+        for i, r in enumerate(rpm):
+            self.fan_stalled[i] = self.fan_stalled[i] + 1 if duty > 0 and r == 0 else 0
+            if self.fan_stalled[i] == FAN_STALL_S:
+                log.warning("fan %d stopped", i + 1)
+                launcher_post("/api/notice", {"text": f"Fan {i + 1} stopped. Check its plug"})
 
     def run(self):
         last_in = last_tick = 0.0

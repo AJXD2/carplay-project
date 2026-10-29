@@ -45,7 +45,7 @@ def main():
     fig.text(0.05, 0.905, "All dimensions in mm. Model: heatsink.step (this drawing governs threads and finish).",
              fontsize=9)
 
-    # bottom view: 20 x 41.4 footprint, two feet with tapped holes
+    # bottom view: footprint, two feet with tapped holes
     ax = fig.add_axes([0.05, 0.12, 0.38, 0.72])
     ax.set_title("BOTTOM VIEW (feet side)", fontsize=10, loc="left")
     W, L = hs.W, hs.L
@@ -62,7 +62,7 @@ def main():
     dim(ax, (0, -hs.FOOT_Y), (0, hs.FOOT_Y), f"{2 * hs.FOOT_Y:g}", 20, vertical=True)
     ax.text(0, -L / 2 - 9, "holes on the centreline", fontsize=7, ha="center")
     ax.annotate(f"2x  M3 x 0.5 - 6H\nthread depth {THREAD_DEPTH:g} min\n"
-                f"tap drill {hs.TAP_D:g} x {hs.TAP_DEPTH:g} deep\nfrom the foot faces",
+                f"tap drill {hs.TAP_D:g} THRU\nfrom the foot faces",
                 xy=(0.9, hs.FOOT_Y + 0.9), xytext=(-W / 2 - 17, hs.FOOT_Y + 8), fontsize=8,
                 arrowprops=dict(arrowstyle="->", lw=THIN))
     ax.annotate(f"2x foot  {hs.FOOT_D:g} dia", xy=(-hs.FOOT_D / 2 * 0.7, -hs.FOOT_Y - 2.3),
@@ -81,7 +81,7 @@ def main():
     for s in (1, -1):
         y = s * hs.FOOT_Y
         bx.add_patch(Rectangle((y - hs.FOOT_D / 2, 0), hs.FOOT_D, fh, fill=False, lw=LW))
-        bx.add_patch(Rectangle((y - hs.TAP_D / 2, 0), hs.TAP_D, hs.TAP_DEPTH, fill=False, lw=THIN, ls="--"))
+        bx.add_patch(Rectangle((y - hs.TAP_D / 2, 0), hs.TAP_D, fh + hs.BASE, fill=False, lw=THIN, ls="--"))
     dim(bx, (-L / 2, 0), (L / 2, 0), f"{L:g}", 4)
     dim(bx, (L / 2, 0), (L / 2, fh), f"{fh:.2f} +/-0.05", 3, vertical=True, size=7)
     dim(bx, (L / 2, fh), (L / 2, fh + base), f"{base:g}", 10, vertical=True)

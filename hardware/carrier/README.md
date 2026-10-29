@@ -28,7 +28,7 @@ Software for it lives in [`launcher/board/`](../../launcher/board/README.md).
 | Pi position on the screen | Measured on the real screen and confirmed with a printed fit test (see Mechanical). |
 | Software | Written and tested on simulated hardware (18 tests), not installed. |
 | Simulation + assembly check | Done 2026-09-29: SPICE on every analog block, pinouts and land patterns against datasheets, placement file against JLC's footprints ([VERIFICATION.md](VERIFICATION.md)). |
-| Housing | Designed (`tools/housing.py`): PETG shell + fan lid, clearance-checked against the board, Pi and screen. Not printed yet. |
+| Housing | Designed (`tools/housing.py`): PETG shell + fan lid, clearance-checked against the board, Pi and screen, and checked that each part can go in. First shell printed as a dash and screen fit test; its lid screw blocks stopped the board going in, now moved. Shell and lid to be reprinted. |
 | Ordering | Not yet. |
 
 ## How it works, block by block
@@ -169,10 +169,10 @@ the Pi's DSI connector clears the display ribbon (HAT spec position).
 | Fans (in the housing lid) | 44 to 54 | Noctua NF-A4x10, 3 mm above the heatsink |
 | Housing lid | 54 to 56.4 | `tools/housing.py` |
 
-Board stack **165 x 103 x ~41 mm**; in its housing **177 x 108 x 56.4 mm**
-(186 mm wide across the bracket pads). The heatsink, the 470 µF cap and the
+Board stack **165 x 103 x ~41 mm**; in its housing **176.7 x 106.2 x 56.4 mm**,
+sized to slide through the Metra 95-8210 dash kit's double DIN opening. The heatsink, the 470 µF cap and the
 harness plug all end at about the same height. (The CNC heatsink in `mech/`
-would have made the stack 56.5 mm.)
+is cut to the same 10 mm height, so it fits without moving the lid.)
 
 **Fit test before ordering:** `tools/fit_plate.py` writes
 `mech/fit_plate.stl`, a 1.6 mm plate with the board's exact outline, notch,
@@ -183,22 +183,34 @@ edges against the screen and the holes against the standoffs.
 **Housing.** `tools/housing.py` builds a two-part PETG housing from the same
 numbers as the board (`place.py`, part positions read from
 `carrier.kicad_pcb`) and checks it against the board, Pi, heatsink and screen
-(exit 1 on any clash):
+where they sit, and along the way in: the screen from the front, the Pi and
+the board straight in from the open back, and a screwdriver down onto each
+pillar screw. It also checks the shell and lid against the Metra 95-8210 trim
+panel's opening (about 177.8 x 108.0 mm, ruler-measured; `KIT_OPENING`) with
+0.5 mm to spare on each side (exit 1 on any clash, blocked path or misfit):
 
-- **Shell** (`mech/housing_shell.stl`): 2.4 mm walls 0.5 mm outside the
-  screen outline, with a skirt down flush with the glass front. The right
-  wall (driver side, seen from the back) is 6.60 mm thicker: the fit ring
-  left that gap in the dash opening. Corner tabs sit on
+- **Shell** (`mech/housing_shell.stl`): walls 0.5 mm outside the screen
+  outline, with a skirt down flush with the glass front: 2.4 mm at the sides,
+  1.6 mm top and bottom (the screen is 102.0 mm tall against the kit's ~108
+  mm opening). The right wall (driver side, seen from the back) is 6.0 mm
+  thicker, taking the kit opening's spare width. Corner tabs sit on
   the screen's four pillars (2.9 mm holes, M2.5 x 6 screws). A ledge under the
   board's top edge either side of J1 (x 90 to 145, stopping 1 mm short of
   J1's pins) takes the push when the harness goes in: open item 5. Vent
   slots below the board (Pi level) and above it, an opening in the left wall
   for the USB cables (CarPlay dongle), and a hole in the right wall for the mic
-  plug (12 mm counterbore through the thick wall). Four M3 heat-set blocks
-  on the top and bottom walls hold the lid; they
-  are kept off the corners so a screwdriver reaches the pillar screws. Two
-  pads with M3 heat-set holes on each side wall (y 25 and 77 mm, 34 mm from
-  the glass) are for dash brackets later.
+  plug (12 mm counterbore through the thick wall). Four M3 heat-set inserts
+  hold the lid, all outside the board's path in (it has only 0.5 mm to the
+  walls): two go straight down into the top of the thick right wall (y 20
+  and 82), two sit in 7 x 7 x 8 mm blocks on the left wall inside the Pi's
+  port notch (y 35 and 84), where the board has no edge. All four are kept
+  off the corners so a screwdriver reaches the pillar screws. The kit's own
+  side brackets hold the housing in the dash: three more M3 heat-set inserts,
+  pressed in from outside at the old bracket pads' positions (y 25 and 77, 34
+  mm from the glass). Two go into the thick right wall; on the left only the
+  lower one, in a block inside the port notch (the upper one would sit in the
+  board's way in). The mic plug's hole may sit behind the kit's right bracket:
+  cut the bracket if so.
 - **Lid** (`mech/housing_lid.stl`): both fans hang under it, blowing in.
   Fan 1 sits over the amp heatsink (the airflow the stock heatsink needs);
   fan 2 sits over the Pi's port notch, so its air goes down past the jacks,
@@ -210,9 +222,9 @@ numbers as the board (`place.py`, part positions read from
   about a fifth of the plastic. Print it first and check the skirt fit and
   the four pillar screws.
 
-Exhaust (slots + USB opening) is 1.7x the open area of the two fan grilles.
+Exhaust (slots + USB opening) is 2.0x the open area of the two fan grilles.
 
-Print in PETG, 0.16 mm layers, 6 walls (the 2.4 mm walls come out solid),
+Print in PETG, 0.16 mm layers, 6 walls (every wall comes out solid),
 30% gyroid, textured PEI: the shell on its front rim (screen side down, 5 mm
 outer brim), the lid on its outer face. The lid needs no supports. The shell
 needs them only under the four corner tabs: each is a 10 mm corner overhang
@@ -229,19 +241,20 @@ document "CarPlay Head Unit Housing"
 (<https://cad.onshape.com/documents/92519b2e7fb9667b3fe711ef>), with a fan
 part, a reference part studio (screen, pillars, Pi, HAT standoffs, board with
 its notch and slot, heatsink, J1) and a "Head unit assembly" fastening it all
-together. The shell and lid match `housing.py` to within 1 mm3 in volume, with
-the same face counts and bounding boxes. Those features sit at fixed
+together. It is behind `housing.py` now: no thick right wall, no mic
+counterbore, and the old lid screw blocks. Those features sit at fixed
 coordinates and are not linked to each other, so `housing.py` stays the master:
 change sizes there, check them with its clearance check, then redo the
 affected features in Onshape.
 
 Hardware: 4x M2.5 x 6 (shell to pillars), 4x M3 x 5.7 heat-set inserts +
-4x M3 x 8 countersunk (lid), the screws in the Noctua box through the lid into
-the fans (or M3 x 16 + nuts), and 4 more M3 inserts if the bracket pads get
-used.
+4x M3 x 8 countersunk (lid), 3x M3 x 5.7 heat-set inserts + M3 screws (kit
+brackets), the screws in the Noctua box through the lid into
+the fans (or M3 x 16 + nuts).
 
-Assembly: screw the shell to the screen, fit the Pi and board as before (the
-board's top edge rests on the ledge), plug the fans into the board, and close
+Assembly: press the four lid inserts in from the back (about 240 °C for
+PETG), screw the shell to the screen, fit the Pi, then drop the board straight
+in from the back onto its standoffs (its top edge rests on the ledge), plug the fans into the board, and close
 the lid. Gap check on the bench: the board should sit on the ledge with no
 rocking and the ribs just touching it.
 
@@ -472,6 +485,9 @@ What each script owns:
   run in KiCad's bundled ngspice. Values are copied from `gen_sch.py`
   (constants at the top of `sim.py`); change both together.
 - `heatsink.py`, `housing.py`, `assembly.py`, `render3d.py`: mechanical.
+  `HEATSINK=stock|double|cnc` picks the amp heatsink the assembly and the
+  housing check use. `heatsink_thermal.py`: rough junction temperatures for
+  each heatsink option, swept over the unmeasured fan airflow.
   `assembly.py` owns the stack heights; `housing.py` takes them from it.
   Re-export `mech/carrier_board.step` after any board change, before
   `housing.py` (its clearance check uses it).

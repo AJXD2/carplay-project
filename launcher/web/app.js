@@ -79,7 +79,22 @@ function renderStatus() {
   const chip = $("dongle-chip");
   chip.hidden = status.dongle_usb;
   chip.textContent = "Dongle not detected";
+
+  const notice = $("notice-chip");
+  notice.hidden = !status.notice;
+  notice.textContent = status.notice || "";
 }
+
+// carrierd's notices (amp ran hot, fan stopped) stay until tapped
+$("notice-chip").addEventListener("click", async () => {
+  status.notice = null;
+  renderStatus();
+  try {
+    await postJSON("/api/notice", { text: null });
+  } catch (e) {
+    /* the next status poll shows it again */
+  }
+});
 
 async function refreshStatus() {
   try {

@@ -209,6 +209,7 @@ class FanTests(unittest.TestCase):
         self.assertAlmostEqual(fans.fan_duty(60), 0.55)
         self.assertEqual(fans.fan_duty(90), 1.0)
         self.assertEqual(fans.fan_duty(30, amp_warning=True), 1.0)
+        self.assertEqual(fans.fan_duty(30, amp_on=True), 1.0)
 
     def test_pwm_is_inverted(self):
         pwm = hw.SimPwm(0)
@@ -271,6 +272,32 @@ class BoardTests(unittest.TestCase):
         for _ in range(4):
             self.board.sample_wheel()
         self.assertIn(("/api/volume", {"delta": 4}), self.posts)
+
+    def test_fans_full_while_amp_runs(self):
+        self.board.tick()
+        self.assertEqual(self.board.status["fan_duty"], 1.0)
+
+    def test_amp_hot_notice_once(self):
+        self.board.tick()
+        self.board.bus.devices[tas6424.ADDR].inject(tas6424.WARNINGS, 0x01)
+        self.board.amp.warn.drive(0)                          # WARN is active low
+        for _ in range(3):
+            self.board.tick()
+        notices = [d for p, d in self.posts if p == "/api/notice"]
+        self.assertEqual(notices, [{"text": "Amp ran hot. Check fans and vents"}])
+        self.assertEqual(self.board.status["amp_hot_count"], 1)
+        self.board.amp.warn.drive(1)
+        self.board.tick()
+        self.board.amp.warn.drive(0)
+        self.board.tick()
+        self.assertEqual(self.board.status["amp_hot_count"], 2)
+
+    def test_stopped_fan_notice(self):
+        self.board.check_fans = True                          # sim tach never pulses: both read 0
+        for _ in range(carrierd.FAN_STALL_S + 3):
+            self.board.tick()
+        notices = [d["text"] for p, d in self.posts if p == "/api/notice"]
+        self.assertEqual(notices, ["Fan 1 stopped. Check its plug", "Fan 2 stopped. Check its plug"])
 
     def test_reverse_ducks(self):
         self.board.tick()
